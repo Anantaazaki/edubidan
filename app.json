@@ -5,13 +5,10 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
+    "scheme": "edubidan",
     "android": {
       "package": "com.edubidan.app",
       "versionCode": 1,
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#4ECDC4"
-      },
       "permissions": [
         "INTERNET",
         "ACCESS_NETWORK_STATE"
@@ -23,20 +20,8 @@
     },
     "plugins": [
       "expo-router",
-      "expo-asset",
-      [
-        "expo-splash-screen",
-        {
-          "backgroundColor": "#4ECDC4",
-          "image": "./assets/splash-icon.png",
-          "imageWidth": 200
-        }
-      ]
+      "expo-asset"
     ],
-    "scheme": "edubidan",
-    "splash": {
-      "backgroundColor": "#4ECDC4"
-    },
     "extra": {
       "eas": {
         "projectId": "edubidan"
