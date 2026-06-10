@@ -181,7 +181,7 @@ export default function QuizEditScreen() {
                   {question.question}
                 </Text>
                 
-                {question.type === 'multiple-choice' && question.options && (
+                {((question.type as any) === 'multiple_choice' || (question.type as any) === 'multiple-choice' || !question.type) && question.options && (
                   <View style={styles.options}>
                     {question.options.map((option: string, optIndex: number) => (
                       <Text key={optIndex} style={[styles.optionText, { color: theme.textMuted }]}>

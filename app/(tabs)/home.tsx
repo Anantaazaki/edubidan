@@ -16,6 +16,8 @@ import { useTheme } from '../../src/contexts/ThemeContext';
 import { Colors } from '../../src/constants/colors';
 import { MODULES } from '../../src/constants/modules';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ProgressHelper } from '../../src/utils/progressHelper';
+import { UserDatabase } from '../../src/utils/userDatabase';
 
 // Notification interface
 interface Notification {
@@ -110,7 +112,6 @@ export default function HomeScreen() {
       }
 
       // Fallback: load dari UserDatabase (data login)
-      const { UserDatabase } = await import('../../src/utils/userDatabase');
       const user = await UserDatabase.getCurrentUser();
       if (user) {
         setCurrentUser({
@@ -148,20 +149,14 @@ export default function HomeScreen() {
 
   const loadProgress = async () => {
     try {
-      const progressData: {[key: string]: number} = {};
+      const progressData = await ProgressHelper.loadAllProgress();
+      const result: {[key: string]: number} = {};
       for (const module of MODULES) {
-        const stored = await AsyncStorage.getItem(`@edubidan_progress_${module.id}`);
-        if (stored) {
-          const progress = JSON.parse(stored);
-          const completedLessons = progress.completedLessons?.length || 0;
-          // Calculate total lessons from chapters
-          const totalLessons = module.chapters.reduce((sum, chapter) => sum + chapter.lessons.length, 0);
-          progressData[module.id] = totalLessons > 0 ? (completedLessons / totalLessons) : 0;
-        } else {
-          progressData[module.id] = 0;
-        }
+        const completed = progressData[module.id] || 0;
+        const totalLessons = module.chapters.reduce((sum, chapter) => sum + chapter.lessons.length, 0);
+        result[module.id] = totalLessons > 0 ? completed / totalLessons : 0;
       }
-      setModuleProgress(progressData);
+      setModuleProgress(result);
     } catch (error) {
       console.error('Error loading progress:', error);
     }

@@ -107,7 +107,7 @@ export default function AdminProfileScreen() {
           ].map((item, index) => (
             <View key={index} style={[styles.infoRow, { borderBottomColor: theme.border }]}>
               <View style={[styles.infoIcon, { backgroundColor: Colors.primaryLight }]}>
-                <Ionicons name={item.icon} size={16} color={Colors.primary} />
+                <Ionicons name={item.icon as any} size={16} color={Colors.primary} />
               </View>
               <View style={styles.infoContent}>
                 <Text style={[styles.infoLabel, { color: theme.textMuted }]}>{item.label}</Text>

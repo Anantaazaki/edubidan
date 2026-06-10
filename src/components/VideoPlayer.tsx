@@ -153,7 +153,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           }}
           initialPlayerParams={{
             controls: true,
-            modestbranding: true,
             rel: false,
             preventFullScreen: false,
           }}

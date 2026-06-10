@@ -53,7 +53,7 @@ export default function ContentManagementScreen() {
           category: module.category,
           createdBy: 'lecturer1',
           creatorName: 'Dr. Siti Aminah',
-          status: moduleIndex % 2 === 0 ? 'published' : 'draft' as const,
+          status: (moduleIndex % 2 === 0 ? 'published' : 'draft') as ContentItem['status'],
           views: Math.floor(Math.random() * 500) + 50,
           likes: Math.floor(Math.random() * 100) + 10,
           createdAt: Date.now() - (moduleIndex * 86400000),
@@ -68,7 +68,7 @@ export default function ContentManagementScreen() {
           category: module.category,
           createdBy: 'lecturer1',
           creatorName: 'Dr. Siti Aminah',
-          status: (moduleIndex + videoIndex) % 3 === 0 ? 'published' : 'draft' as const,
+          status: ((moduleIndex + videoIndex) % 3 === 0 ? 'published' : 'draft') as ContentItem['status'],
           views: Math.floor(Math.random() * 300) + 20,
           likes: Math.floor(Math.random() * 50) + 5,
           createdAt: Date.now() - ((moduleIndex + videoIndex) * 21600000),
@@ -83,7 +83,7 @@ export default function ContentManagementScreen() {
           category: module.category,
           createdBy: 'lecturer1',
           creatorName: 'Dr. Siti Aminah',
-          status: moduleIndex % 3 === 0 ? 'published' : 'draft' as const,
+          status: (moduleIndex % 3 === 0 ? 'published' : 'draft') as ContentItem['status'],
           views: Math.floor(Math.random() * 200) + 10,
           likes: Math.floor(Math.random() * 30) + 3,
           createdAt: Date.now() - (moduleIndex * 64800000),
@@ -193,7 +193,7 @@ export default function ContentManagementScreen() {
             try {
               // In real app, this would update the content status
               const updatedContents = contents.map(c => 
-                c.id === content.id ? { ...c, status: newStatus, updatedAt: Date.now() } : c
+                c.id === content.id ? { ...c, status: newStatus as ContentItem['status'], updatedAt: Date.now() } : c
               );
               setContents(updatedContents);
               
@@ -377,7 +377,7 @@ export default function ContentManagementScreen() {
               onPress={() => setActiveTab(tab.key as ContentType)}
             >
               <Ionicons 
-                name={tab.icon} 
+                name={tab.icon as any} 
                 size={16} 
                 color={activeTab === tab.key ? Colors.white : theme.text} 
               />

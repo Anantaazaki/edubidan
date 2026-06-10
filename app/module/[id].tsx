@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NotificationManager from '../../src/utils/notifications';
 import { NotificationHelper } from '../../src/utils/notificationHelper';
+import { ProgressHelper } from '../../src/utils/progressHelper';
 import { VideoPlayer } from '../../src/components/VideoPlayer';
 import { MODULES } from '../../src/constants/modules';
 import { Colors } from '../../src/constants/colors';
@@ -53,9 +54,8 @@ export default function ModuleDetailSimpleScreen() {
 
   const loadProgress = async () => {
     try {
-      const stored = await AsyncStorage.getItem(`${PROGRESS_KEY}_${id}`);
-      if (stored) {
-        const progress = JSON.parse(stored);
+      const progress = await ProgressHelper.loadProgress(String(id));
+      if (progress) {
         setCompletedLessons(progress.completedLessons || []);
         setWatchedVideos(progress.watchedVideos || []);
       }
@@ -66,14 +66,9 @@ export default function ModuleDetailSimpleScreen() {
 
   const saveProgress = async (lessonId?: string, videoId?: string) => {
     try {
-      const progress = {
-        completedLessons: lessonId ? [...completedLessons, lessonId] : completedLessons,
-        watchedVideos: videoId ? [...watchedVideos, videoId] : watchedVideos,
-        lastAccessed: Date.now(),
-      };
-      
-      await AsyncStorage.setItem(`${PROGRESS_KEY}_${id}`, JSON.stringify(progress));
-      
+      const progress = await ProgressHelper.saveProgress(String(id), {
+        lessonId, videoId,
+      });
       if (lessonId && !completedLessons.includes(lessonId)) {
         setCompletedLessons(prev => [...prev, lessonId]);
       }
@@ -209,35 +204,10 @@ export default function ModuleDetailSimpleScreen() {
 
   const checkLearningStreak = async () => {
     try {
-      const today = new Date().toDateString();
-      const streakKey = '@edubidan_learning_streak';
-      const lastLearningKey = '@edubidan_last_learning';
-      
-      const stored = await AsyncStorage.getItem(streakKey);
-      const lastLearning = await AsyncStorage.getItem(lastLearningKey);
-      
-      let currentStreak = stored ? parseInt(stored) : 0;
-      
-      if (lastLearning !== today) {
-        // New day of learning
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        
-        if (lastLearning === yesterday.toDateString()) {
-          // Consecutive day
-          currentStreak += 1;
-        } else {
-          // Streak broken, start new
-          currentStreak = 1;
-        }
-        
-        await AsyncStorage.setItem(streakKey, currentStreak.toString());
-        await AsyncStorage.setItem(lastLearningKey, today);
-        
-        // Create streak notification for milestones
-        if (currentStreak === 7 || currentStreak === 30 || currentStreak % 7 === 0) {
-          await NotificationManager.createStreakNotification(currentStreak);
-        }
+      const streak = await ProgressHelper.checkLearningStreak();
+      // Notify on milestone streaks
+      if (streak === 7 || streak === 30 || (streak > 0 && streak % 7 === 0)) {
+        await NotificationHelper.createStreakAchievementNotification(currentUserId, streak);
       }
     } catch (error) {
       console.error('Error checking learning streak:', error);

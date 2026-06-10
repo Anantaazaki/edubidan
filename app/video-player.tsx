@@ -31,6 +31,8 @@ import { MODULES } from '../src/constants/modules';
 import { VideoPlayer } from '../src/components/VideoPlayer';
 import { VideoCard, VIDEO_CARD_HEIGHT } from '../src/components/VideoCard';
 import { NotificationHelper } from '../src/utils/notificationHelper';
+import { ProgressHelper } from '../src/utils/progressHelper';
+import { auth } from '../src/config/firebase';
 
 const PROGRESS_KEY = '@edubidan_progress';
 const USER_ID = 'user123';
@@ -76,14 +78,13 @@ export default function VideoPlayerScreen() {
     return () => { isMounted.current = false; };
   }, []);
 
-  // Load progress
+  // Load progress dari Firestore
   useEffect(() => {
     if (!moduleId) return;
-    AsyncStorage.getItem(`${PROGRESS_KEY}_${moduleId}`)
-      .then(raw => {
-        if (raw && isMounted.current) {
-          const p = JSON.parse(raw);
-          setCompletedIds(p.completedLessons ?? []);
+    ProgressHelper.loadProgress(moduleId as string)
+      .then(progress => {
+        if (progress && isMounted.current) {
+          setCompletedIds(progress.completedLessons ?? []);
         }
       })
       .catch(() => {});
@@ -92,13 +93,9 @@ export default function VideoPlayerScreen() {
   const saveCompletion = useCallback(async (lessonId: string) => {
     if (!moduleId) return;
     try {
-      const raw = await AsyncStorage.getItem(`${PROGRESS_KEY}_${moduleId}`);
-      const p = raw ? JSON.parse(raw) : { completedLessons: [], watchedVideos: [] };
-      if (!p.completedLessons.includes(lessonId)) {
-        p.completedLessons.push(lessonId);
-        p.lastAccessed = Date.now();
-        await AsyncStorage.setItem(`${PROGRESS_KEY}_${moduleId}`, JSON.stringify(p));
-        if (isMounted.current) setCompletedIds(p.completedLessons);
+      const progress = await ProgressHelper.saveProgress(moduleId as string, { lessonId });
+      if (isMounted.current) {
+        setCompletedIds(progress.completedLessons);
       }
     } catch (_) {}
   }, [moduleId]);

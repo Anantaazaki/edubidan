@@ -1,7 +1,14 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+/**
+ * notificationHelper.ts
+ * Migrasi dari AsyncStorage ke Firebase Firestore
+ */
 
-const NOTIFICATIONS_KEY = '@edubidan_notifications';
-const ACHIEVEMENTS_KEY = '@edubidan_achievements';
+import {
+  collection, doc, getDocs, addDoc, updateDoc,
+  query, where, orderBy, limit, deleteDoc,
+  serverTimestamp, Timestamp,
+} from 'firebase/firestore';
+import { db, auth } from '../config/firebase';
 
 export interface Notification {
   id: string;
@@ -25,235 +32,59 @@ export interface Achievement {
   title: string;
   description: string;
   timestamp: number;
-  progress?: {
-    current: number;
-    total: number;
-  };
+  progress?: { current: number; total: number };
 }
 
+const NOTIF_COL = 'notifications';
+const ACHIEVE_COL = 'achievements';
+
+// Helper: get current user ID
+const getCurrentUserId = (): string => {
+  return auth.currentUser?.uid || 'anonymous';
+};
+
 export class NotificationHelper {
-  
+
   static async getAllNotifications(): Promise<Notification[]> {
     try {
-      const notificationsJson = await AsyncStorage.getItem(NOTIFICATIONS_KEY);
-      return notificationsJson ? JSON.parse(notificationsJson) : [];
+      const userId = getCurrentUserId();
+      const q = query(
+        collection(db, NOTIF_COL),
+        where('userId', '==', userId),
+        orderBy('timestamp', 'desc'),
+        limit(50)
+      );
+      const snap = await getDocs(q);
+      return snap.docs.map(d => ({
+        ...d.data(), id: d.id,
+        timestamp: d.data().timestamp instanceof Timestamp
+          ? d.data().timestamp.toMillis() : d.data().timestamp || Date.now(),
+      } as Notification));
     } catch (error) {
       console.error('Error getting notifications:', error);
       return [];
     }
   }
 
-  static async saveNotifications(notifications: Notification[]): Promise<void> {
+  static async createNotification(
+    data: Omit<Notification, 'id' | 'timestamp' | 'isRead'>
+  ): Promise<void> {
     try {
-      await AsyncStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(notifications));
-    } catch (error) {
-      console.error('Error saving notifications:', error);
-    }
-  }
-
-  static async createNotification(notificationData: Omit<Notification, 'id' | 'timestamp' | 'isRead'>): Promise<void> {
-    try {
-      const notification: Notification = {
-        ...notificationData,
-        id: Date.now().toString(),
+      const userId = data.userId || getCurrentUserId();
+      await addDoc(collection(db, NOTIF_COL), {
+        ...data,
+        userId,
         timestamp: Date.now(),
         isRead: false,
-      };
-
-      const notifications = await this.getAllNotifications();
-      notifications.unshift(notification); // Add to beginning for latest first
-
-      // Keep only last 50 notifications
-      if (notifications.length > 50) {
-        notifications.splice(50);
-      }
-
-      await this.saveNotifications(notifications);
+      });
     } catch (error) {
       console.error('Error creating notification:', error);
     }
   }
 
-  static async createVideoCompletionNotification(
-    userId: string, 
-    videoTitle: string, 
-    moduleTitle: string,
-    nextSteps: string[] = []
-  ): Promise<void> {
-    const congratulatoryMessages = [
-      `🎉 Selamat! Anda telah menyelesaikan video "${videoTitle}"`,
-      `✨ Hebat! Video "${videoTitle}" berhasil diselesaikan`,
-      `🌟 Luar biasa! Anda telah menonton video "${videoTitle}" sampai selesai`,
-      `👏 Bagus sekali! Video "${videoTitle}" telah Anda tuntaskan`,
-    ];
-
-    const randomMessage = congratulatoryMessages[Math.floor(Math.random() * congratulatoryMessages.length)];
-
-    const defaultNextSteps = [
-      `Lanjutkan ke video berikutnya dalam modul "${moduleTitle}"`,
-      `Kerjakan latihan soal terkait materi ini`,
-      `Review catatan pembelajaran untuk memperdalam pemahaman`,
-      `Diskusikan materi dengan teman atau dosen`,
-    ];
-
-    await this.createNotification({
-      title: 'Video Pembelajaran Selesai',
-      message: randomMessage,
-      type: 'achievement',
-      userId,
-      actionData: {
-        nextSteps: nextSteps.length > 0 ? nextSteps : defaultNextSteps,
-      },
-    });
-  }
-
-  static async createModuleCompletionNotification(
-    userId: string, 
-    moduleTitle: string,
-    completionPercentage: number
-  ): Promise<void> {
-    const congratulatoryMessages = [
-      `🏆 Fantastis! Modul "${moduleTitle}" telah Anda selesaikan dengan ${completionPercentage}%`,
-      `🎊 Selamat! Anda berhasil menuntaskan modul "${moduleTitle}"`,
-      `⭐ Luar biasa! Modul "${moduleTitle}" sudah ${completionPercentage}% selesai`,
-      `🎯 Hebat! Pencapaian ${completionPercentage}% pada modul "${moduleTitle}"`,
-    ];
-
-    const randomMessage = congratulatoryMessages[Math.floor(Math.random() * congratulatoryMessages.length)];
-
-    const nextSteps = [
-      'Ambil quiz untuk menguji pemahaman Anda',
-      'Lanjutkan ke modul pembelajaran berikutnya',
-      'Review materi yang sudah dipelajari',
-      'Praktikkan ilmu yang telah diperoleh',
-      'Bagikan pencapaian Anda dengan teman',
-    ];
-
-    await this.createNotification({
-      title: 'Modul Pembelajaran Selesai',
-      message: randomMessage,
-      type: 'achievement',
-      userId,
-      actionData: {
-        nextSteps,
-      },
-    });
-  }
-
-  static async createQuizCompletionNotification(
-    userId: string, 
-    quizTitle: string,
-    score: number,
-    maxScore: number
-  ): Promise<void> {
-    const percentage = Math.round((score / maxScore) * 100);
-    let message = '';
-    let nextSteps: string[] = [];
-
-    if (percentage >= 90) {
-      message = `🏅 Sempurna! Anda meraih ${score}/${maxScore} (${percentage}%) pada quiz "${quizTitle}"`;
-      nextSteps = [
-        'Lanjutkan ke materi pembelajaran berikutnya',
-        'Bantu teman yang membutuhkan penjelasan',
-        'Tantang diri dengan quiz tingkat lanjut',
-        'Review sekali lagi untuk mempertahankan pemahaman',
-      ];
-    } else if (percentage >= 75) {
-      message = `🌟 Bagus! Skor ${score}/${maxScore} (${percentage}%) pada quiz "${quizTitle}"`;
-      nextSteps = [
-        'Review materi yang kurang dipahami',
-        'Lanjutkan ke topik pembelajaran berikutnya',
-        'Diskusikan soal-soal sulit dengan dosen',
-        'Latihan soal tambahan untuk memperkuat pemahaman',
-      ];
-    } else if (percentage >= 60) {
-      message = `👍 Cukup baik! Skor ${score}/${maxScore} (${percentage}%) pada quiz "${quizTitle}"`;
-      nextSteps = [
-        'Pelajari kembali materi yang belum dikuasai',
-        'Minta bantuan dosen untuk penjelasan tambahan',
-        'Latihan soal serupa untuk meningkatkan pemahaman',
-        'Bergabung dengan kelompok belajar',
-      ];
-    } else {
-      message = `💪 Jangan menyerah! Skor ${score}/${maxScore} (${percentage}%) pada quiz "${quizTitle}"`;
-      nextSteps = [
-        'Ulangi pembelajaran materi dari awal',
-        'Konsultasi dengan dosen untuk bimbingan',
-        'Bergabung dengan kelompok belajar',
-        'Coba kerjakan quiz lagi setelah belajar',
-      ];
-    }
-
-    await this.createNotification({
-      title: 'Quiz Selesai',
-      message,
-      type: percentage >= 75 ? 'achievement' : 'info',
-      userId,
-      actionData: {
-        nextSteps,
-      },
-    });
-  }
-
-  static async createStreakAchievementNotification(
-    userId: string, 
-    streakDays: number
-  ): Promise<void> {
-    let message = '';
-    let nextSteps: string[] = [];
-
-    if (streakDays === 7) {
-      message = `🔥 Streak 1 minggu! Anda telah belajar konsisten selama ${streakDays} hari berturut-turut`;
-      nextSteps = [
-        'Pertahankan konsistensi belajar',
-        'Tantang diri untuk mencapai streak 14 hari',
-        'Bagikan pencapaian dengan teman',
-      ];
-    } else if (streakDays === 14) {
-      message = `🚀 Streak 2 minggu! Konsistensi luar biasa selama ${streakDays} hari`;
-      nextSteps = [
-        'Terus pertahankan momentum belajar',
-        'Target streak 1 bulan penuh',
-        'Jadi inspirasi bagi teman-teman',
-      ];
-    } else if (streakDays === 30) {
-      message = `👑 Streak 1 bulan! Dedikasi yang menginspirasi selama ${streakDays} hari`;
-      nextSteps = [
-        'Anda adalah contoh konsistensi yang baik',
-        'Bagikan tips belajar dengan teman',
-        'Tantang diri untuk streak yang lebih panjang',
-      ];
-    } else if (streakDays % 30 === 0) {
-      message = `🏆 Streak ${streakDays} hari! Pencapaian yang luar biasa`;
-      nextSteps = [
-        'Anda telah membuktikan komitmen yang kuat',
-        'Menjadi mentor bagi teman-teman',
-        'Terus pertahankan kebiasaan belajar yang baik',
-      ];
-    }
-
-    if (message) {
-      await this.createNotification({
-        title: 'Pencapaian Streak',
-        message,
-        type: 'achievement',
-        userId,
-        actionData: {
-          nextSteps,
-        },
-      });
-    }
-  }
-
   static async markAsRead(notificationId: string): Promise<void> {
     try {
-      const notifications = await this.getAllNotifications();
-      const notificationIndex = notifications.findIndex(n => n.id === notificationId);
-      
-      if (notificationIndex !== -1) {
-        notifications[notificationIndex].isRead = true;
-        await this.saveNotifications(notifications);
-      }
+      await updateDoc(doc(db, NOTIF_COL, notificationId), { isRead: true });
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }
@@ -261,67 +92,153 @@ export class NotificationHelper {
 
   static async markAllAsRead(): Promise<void> {
     try {
-      const notifications = await this.getAllNotifications();
-      const updatedNotifications = notifications.map(n => ({ ...n, isRead: true }));
-      await this.saveNotifications(updatedNotifications);
+      const userId = getCurrentUserId();
+      const q = query(collection(db, NOTIF_COL),
+        where('userId', '==', userId), where('isRead', '==', false));
+      const snap = await getDocs(q);
+      const updates = snap.docs.map(d => updateDoc(d.ref, { isRead: true }));
+      await Promise.all(updates);
     } catch (error) {
-      console.error('Error marking all notifications as read:', error);
+      console.error('Error marking all as read:', error);
     }
   }
 
   static async getUnreadCount(): Promise<number> {
     try {
-      const notifications = await this.getAllNotifications();
-      return notifications.filter(n => !n.isRead).length;
+      const userId = getCurrentUserId();
+      const q = query(collection(db, NOTIF_COL),
+        where('userId', '==', userId), where('isRead', '==', false));
+      const snap = await getDocs(q);
+      return snap.size;
     } catch (error) {
-      console.error('Error getting unread count:', error);
       return 0;
     }
   }
 
-  static async clearOldNotifications(daysOld: number = 30): Promise<void> {
-    try {
-      const notifications = await this.getAllNotifications();
-      const cutoffTime = Date.now() - (daysOld * 24 * 60 * 60 * 1000);
-      const recentNotifications = notifications.filter(n => n.timestamp > cutoffTime);
-      await this.saveNotifications(recentNotifications);
-    } catch (error) {
-      console.error('Error clearing old notifications:', error);
+  static async createVideoCompletionNotification(
+    userId: string, videoTitle: string, moduleTitle: string, nextSteps: string[] = []
+  ): Promise<void> {
+    const messages = [
+      `🎉 Selamat! Anda telah menyelesaikan video "${videoTitle}"`,
+      `✨ Hebat! Video "${videoTitle}" berhasil diselesaikan`,
+      `🌟 Luar biasa! Anda telah menonton video "${videoTitle}" sampai selesai`,
+    ];
+    await this.createNotification({
+      title: 'Video Pembelajaran Selesai',
+      message: messages[Math.floor(Math.random() * messages.length)],
+      type: 'achievement', userId,
+      actionData: {
+        nextSteps: nextSteps.length > 0 ? nextSteps : [
+          `Lanjutkan ke video berikutnya dalam modul "${moduleTitle}"`,
+          'Kerjakan latihan soal terkait materi ini',
+          'Review catatan pembelajaran untuk memperdalam pemahaman',
+        ],
+      },
+    });
+  }
+
+  static async createModuleCompletionNotification(
+    userId: string, moduleTitle: string, completionPercentage: number
+  ): Promise<void> {
+    const messages = [
+      `🏆 Fantastis! Modul "${moduleTitle}" telah Anda selesaikan dengan ${completionPercentage}%`,
+      `🎊 Selamat! Anda berhasil menuntaskan modul "${moduleTitle}"`,
+    ];
+    await this.createNotification({
+      title: 'Modul Pembelajaran Selesai',
+      message: messages[Math.floor(Math.random() * messages.length)],
+      type: 'achievement', userId,
+      actionData: {
+        nextSteps: [
+          'Ambil quiz untuk menguji pemahaman Anda',
+          'Lanjutkan ke modul pembelajaran berikutnya',
+          'Review materi yang sudah dipelajari',
+        ],
+      },
+    });
+  }
+
+  static async createQuizCompletionNotification(
+    userId: string, quizTitle: string, score: number, maxScore: number
+  ): Promise<void> {
+    const percentage = Math.round((score / maxScore) * 100);
+    let message = '';
+    let nextSteps: string[] = [];
+
+    if (percentage >= 90) {
+      message = `🏅 Sempurna! Anda meraih ${score}/${maxScore} (${percentage}%) pada "${quizTitle}"`;
+      nextSteps = ['Lanjutkan ke materi berikutnya', 'Tantang diri dengan quiz tingkat lanjut'];
+    } else if (percentage >= 75) {
+      message = `🌟 Bagus! Skor ${score}/${maxScore} (${percentage}%) pada "${quizTitle}"`;
+      nextSteps = ['Review materi yang kurang dipahami', 'Lanjutkan ke topik berikutnya'];
+    } else if (percentage >= 60) {
+      message = `👍 Cukup baik! Skor ${score}/${maxScore} (${percentage}%) pada "${quizTitle}"`;
+      nextSteps = ['Pelajari kembali materi yang belum dikuasai', 'Latihan soal tambahan'];
+    } else {
+      message = `💪 Jangan menyerah! Skor ${score}/${maxScore} (${percentage}%) pada "${quizTitle}"`;
+      nextSteps = ['Ulangi pembelajaran materi dari awal', 'Konsultasi dengan dosen'];
+    }
+
+    await this.createNotification({
+      title: 'Quiz Selesai', message,
+      type: percentage >= 75 ? 'achievement' : 'info',
+      userId, actionData: { nextSteps },
+    });
+  }
+
+  static async createStreakAchievementNotification(
+    userId: string, streakDays: number
+  ): Promise<void> {
+    let message = '';
+    if (streakDays === 7) {
+      message = `🔥 Streak 1 minggu! Belajar konsisten ${streakDays} hari berturut-turut`;
+    } else if (streakDays === 30) {
+      message = `👑 Streak 1 bulan! Dedikasi yang menginspirasi selama ${streakDays} hari`;
+    } else if (streakDays % 7 === 0) {
+      message = `🚀 Streak ${streakDays} hari! Konsistensi luar biasa`;
+    }
+    if (message) {
+      await this.createNotification({
+        title: 'Pencapaian Streak', message, type: 'achievement', userId,
+      });
     }
   }
 
-  // Achievement tracking
+  // Achievements
   static async getAllAchievements(): Promise<Achievement[]> {
     try {
-      const achievementsJson = await AsyncStorage.getItem(ACHIEVEMENTS_KEY);
-      return achievementsJson ? JSON.parse(achievementsJson) : [];
+      const userId = getCurrentUserId();
+      const q = query(collection(db, ACHIEVE_COL),
+        where('userId', '==', userId), orderBy('timestamp', 'desc'));
+      const snap = await getDocs(q);
+      return snap.docs.map(d => ({ ...d.data(), id: d.id } as Achievement));
     } catch (error) {
-      console.error('Error getting achievements:', error);
       return [];
     }
   }
 
-  static async saveAchievements(achievements: Achievement[]): Promise<void> {
+  static async recordAchievement(data: Omit<Achievement, 'id' | 'timestamp'>): Promise<void> {
     try {
-      await AsyncStorage.setItem(ACHIEVEMENTS_KEY, JSON.stringify(achievements));
+      await addDoc(collection(db, ACHIEVE_COL), { ...data, timestamp: Date.now() });
     } catch (error) {
-      console.error('Error saving achievements:', error);
+      console.error('Error recording achievement:', error);
     }
   }
 
-  static async recordAchievement(achievementData: Omit<Achievement, 'id' | 'timestamp'>): Promise<void> {
-    try {
-      const achievement: Achievement = {
-        ...achievementData,
-        id: Date.now().toString(),
-        timestamp: Date.now(),
-      };
+  static async saveNotifications(notifications: Notification[]): Promise<void> {
+    // Backward compat - no-op karena sudah pakai Firestore
+  }
 
-      const achievements = await this.getAllAchievements();
-      achievements.unshift(achievement);
-      await this.saveAchievements(achievements);
+  static async clearOldNotifications(daysOld: number = 30): Promise<void> {
+    try {
+      const cutoff = Date.now() - daysOld * 86400000;
+      const userId = getCurrentUserId();
+      const q = query(collection(db, NOTIF_COL),
+        where('userId', '==', userId), where('timestamp', '<', cutoff));
+      const snap = await getDocs(q);
+      await Promise.all(snap.docs.map(d => deleteDoc(d.ref)));
     } catch (error) {
-      console.error('Error recording achievement:', error);
+      console.error('Error clearing old notifications:', error);
     }
   }
 }

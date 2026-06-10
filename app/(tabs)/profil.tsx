@@ -218,8 +218,22 @@ export default function ProfilScreen() {
 
   const saveUserData = async (data: UserData) => {
     try {
+      // Simpan ke AsyncStorage untuk cache lokal
       await AsyncStorage.setItem(USER_DATA_KEY, JSON.stringify(data));
       setUserData(data);
+
+      // Sync ke Firestore
+      if (currentUser?.id) {
+        await UserDatabase.updateUser(currentUser.id, {
+          name: data.name,
+          nim: data.nim,
+          prodi: data.prodi,
+          universitas: data.universitas,
+          angkatan: data.angkatan,
+          phone: data.phone,
+          alamat: data.alamat,
+        });
+      }
     } catch (error) {
       console.error('Error saving user data:', error);
       Alert.alert('Error', 'Gagal menyimpan data profil');

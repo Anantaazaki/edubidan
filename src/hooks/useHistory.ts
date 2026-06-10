@@ -1,25 +1,57 @@
-import { useState, useEffect, useCallback } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { HistoryEntry } from '../types';
+/**
+ * useHistory.ts
+ * Migrasi dari AsyncStorage ke Firebase Firestore
+ */
 
-const HISTORY_KEY = '@edubidan_history';
+import { useState, useEffect, useCallback } from 'react';
+import {
+  collection, addDoc, getDocs, deleteDoc,
+  query, where, orderBy, limit,
+  serverTimestamp, Timestamp,
+} from 'firebase/firestore';
+import { db, auth } from '../config/firebase';
+
+export interface HistoryItem {
+  id: string;
+  moduleId: string;
+  moduleTitle: string;
+  moduleColor: string;
+  type: 'lesson' | 'quiz' | 'video';
+  score?: number;
+  total?: number;
+  passed?: boolean;
+  timestamp: number;
+  userId: string;
+}
+
+const HISTORY_COL = 'history';
 
 export function useHistory() {
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  // Load history from storage
+  const getCurrentUserId = () => auth.currentUser?.uid || 'anonymous';
+
   const loadHistory = useCallback(async () => {
     try {
-      const raw = await AsyncStorage.getItem(HISTORY_KEY);
-      if (raw) {
-        const parsed: HistoryEntry[] = JSON.parse(raw);
-        // Sort by newest first
-        parsed.sort((a, b) => b.timestamp - a.timestamp);
-        setHistory(parsed);
-      }
-    } catch (_) {
-      // ignore
+      setLoading(true);
+      const userId = getCurrentUserId();
+      const q = query(
+        collection(db, HISTORY_COL),
+        where('userId', '==', userId),
+        orderBy('timestamp', 'desc'),
+        limit(50)
+      );
+      const snap = await getDocs(q);
+      const items = snap.docs.map(d => ({
+        ...d.data(), id: d.id,
+        timestamp: d.data().timestamp instanceof Timestamp
+          ? d.data().timestamp.toMillis()
+          : d.data().timestamp || Date.now(),
+      } as HistoryItem));
+      setHistory(items);
+    } catch (error) {
+      console.error('Error loading history:', error);
     } finally {
       setLoading(false);
     }
@@ -29,45 +61,33 @@ export function useHistory() {
     loadHistory();
   }, [loadHistory]);
 
-  // Add a new history entry
-  const addHistory = useCallback(
-    async (entry: Omit<HistoryEntry, 'id' | 'timestamp' | 'date'>) => {
-      const now = new Date();
-      const newEntry: HistoryEntry = {
-        ...entry,
-        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        timestamp: now.getTime(),
-        date: now.toLocaleDateString('id-ID', {
-          day: 'numeric',
-          month: 'long',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-        }),
-      };
-
-      try {
-        const raw = await AsyncStorage.getItem(HISTORY_KEY);
-        const existing: HistoryEntry[] = raw ? JSON.parse(raw) : [];
-        const updated = [newEntry, ...existing];
-        await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
-        setHistory(updated);
-      } catch (_) {
-        // ignore
-      }
-    },
-    []
-  );
-
-  // Clear all history
-  const clearHistory = useCallback(async () => {
+  const addHistory = useCallback(async (
+    item: Omit<HistoryItem, 'id' | 'timestamp' | 'userId'>
+  ) => {
     try {
-      await AsyncStorage.removeItem(HISTORY_KEY);
-      setHistory([]);
-    } catch (_) {
-      // ignore
+      const userId = getCurrentUserId();
+      const newItem = { ...item, userId, timestamp: Date.now() };
+      const ref = await addDoc(collection(db, HISTORY_COL), newItem);
+      
+      setHistory(prev => [{
+        ...newItem, id: ref.id,
+      }, ...prev].slice(0, 50));
+    } catch (error) {
+      console.error('Error adding history:', error);
     }
   }, []);
 
-  return { history, loading, addHistory, clearHistory, reload: loadHistory };
+  const clearHistory = useCallback(async () => {
+    try {
+      const userId = getCurrentUserId();
+      const q = query(collection(db, HISTORY_COL), where('userId', '==', userId));
+      const snap = await getDocs(q);
+      await Promise.all(snap.docs.map(d => deleteDoc(d.ref)));
+      setHistory([]);
+    } catch (error) {
+      console.error('Error clearing history:', error);
+    }
+  }, []);
+
+  return { history, loading, addHistory, clearHistory, loadHistory };
 }
