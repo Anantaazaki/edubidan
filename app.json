@@ -1,0 +1,48 @@
+{
+  "expo": {
+    "name": "EduBidan",
+    "slug": "edubidan",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "android": {
+      "package": "com.edubidan.app",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#4ECDC4"
+      },
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE"
+      ]
+    },
+    "ios": {
+      "bundleIdentifier": "com.edubidan.app",
+      "supportsTablet": false
+    },
+    "plugins": [
+      "expo-router",
+      "expo-asset",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#4ECDC4",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200
+        }
+      ]
+    ],
+    "scheme": "edubidan",
+    "splash": {
+      "backgroundColor": "#4ECDC4"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "edubidan"
+      }
+    },
+    "owner": "ananta15",
+    "newArchEnabled": true
+  }
+}
