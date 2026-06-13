@@ -47,13 +47,6 @@ export class UserDatabase {
     userData: Omit<User, 'id' | 'createdAt'>
   ): Promise<{ success: boolean; message: string; user?: User }> {
     try {
-      // Cek email duplikat di Firestore
-      const q = query(collection(db, 'users'), where('email', '==', userData.email));
-      const snap = await getDocs(q);
-      if (!snap.empty) {
-        return { success: false, message: 'Email sudah terdaftar.' };
-      }
-
       // Buat akun di Firebase Auth
       const credential = await createUserWithEmailAndPassword(
         auth,
@@ -67,14 +60,14 @@ export class UserDatabase {
         createdAt: Date.now(),
       };
 
-      // Simpan data user ke Firestore (tanpa password)
+      // Simpan data user ke Firestore (non-blocking, tidak block register)
       const { password, ...userWithoutPassword } = newUser;
-      await setDoc(doc(db, 'users', credential.user.uid), {
+      setDoc(doc(db, 'users', credential.user.uid), {
         ...userWithoutPassword,
         createdAt: serverTimestamp(),
-      });
+      }).catch(e => console.log('Firestore save failed (offline):', e));
 
-      // Cache ke AsyncStorage untuk akses offline
+      // Cache ke AsyncStorage
       await AsyncStorage.setItem(CURRENT_USER_KEY, JSON.stringify(newUser));
 
       return { success: true, message: 'Akun berhasil dibuat!', user: newUser };
@@ -83,7 +76,13 @@ export class UserDatabase {
       if (error.code === 'auth/email-already-in-use') {
         return { success: false, message: 'Email sudah terdaftar.' };
       }
-      return { success: false, message: 'Gagal membuat akun. Coba lagi.' };
+      if (error.code === 'auth/configuration-not-found') {
+        return { success: false, message: 'Firebase Authentication belum diaktifkan. Aktifkan Email/Password di Firebase Console.' };
+      }
+      if (error.code === 'auth/weak-password') {
+        return { success: false, message: 'Password minimal 6 karakter.' };
+      }
+      return { success: false, message: `Gagal membuat akun: ${error.message}` };
     }
   }
 
@@ -96,41 +95,53 @@ export class UserDatabase {
       // Login via Firebase Auth
       const credential = await signInWithEmailAndPassword(auth, email, password);
 
-      // Ambil data user dari Firestore
-      const userDoc = await getDoc(doc(db, 'users', credential.user.uid));
-
-      if (!userDoc.exists()) {
-        // Jika tidak ada di Firestore, cek default accounts
-        const defaultUser = this.getDefaultUser(email, password, credential.user.uid);
-        if (defaultUser) {
-          await setDoc(doc(db, 'users', credential.user.uid), {
-            ...defaultUser,
-            createdAt: serverTimestamp(),
-          });
-          await AsyncStorage.setItem(CURRENT_USER_KEY, JSON.stringify(defaultUser));
-          return { success: true, message: 'Login berhasil!', user: defaultUser };
+      // Coba ambil data dari Firestore (jika online)
+      let user: User | null = null;
+      try {
+        const userDoc = await getDoc(doc(db, 'users', credential.user.uid));
+        if (userDoc.exists()) {
+          user = { ...userDoc.data() as User, id: credential.user.uid };
         }
-        return { success: false, message: 'Data user tidak ditemukan.' };
+      } catch (firestoreError) {
+        console.log('Firestore offline, using default data');
       }
 
-      const userData = userDoc.data() as User;
-      const user: User = {
-        ...userData,
-        id: credential.user.uid,
-        createdAt: userData.createdAt || Date.now(),
-      };
+      // Jika tidak ada di Firestore, gunakan default
+      if (!user) {
+        user = this.getDefaultUser(email, password, credential.user.uid);
+        if (!user) {
+          user = {
+            id: credential.user.uid,
+            name: credential.user.email?.split('@')[0] || 'User',
+            nim: '-',
+            email: credential.user.email || email,
+            prodi: 'Kebidanan',
+            universitas: 'UNSIKA',
+            angkatan: '2024',
+            role: 'student',
+            createdAt: Date.now(),
+          };
+        }
+        // Try save to Firestore (non-blocking)
+        const { password: _, ...userWithoutPassword } = user;
+        setDoc(doc(db, 'users', credential.user.uid), userWithoutPassword)
+          .catch(() => {});
+      }
 
       // Cache ke AsyncStorage
       await AsyncStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
-
       return { success: true, message: 'Login berhasil!', user };
     } catch (error: any) {
       console.error('Error logging in:', error);
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' ||
+      if (error.code === 'auth/user-not-found' ||
+          error.code === 'auth/wrong-password' ||
           error.code === 'auth/invalid-credential') {
         return { success: false, message: 'Email atau password tidak valid.' };
       }
-      return { success: false, message: 'Gagal login. Coba lagi.' };
+      if (error.code === 'auth/configuration-not-found') {
+        return { success: false, message: 'Firebase Authentication belum diaktifkan. Aktifkan Email/Password di Firebase Console.' };
+      }
+      return { success: false, message: `Gagal login: ${error.message}` };
     }
   }
 

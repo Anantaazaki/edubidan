@@ -141,8 +141,8 @@ export default function ModuleDetailSimpleScreen() {
         
         // Show module completion alert
         Alert.alert(
-          '🏆 Modul Selesai!',
-          `Luar biasa! Anda telah menyelesaikan semua pelajaran dalam modul "${module.title}". Ikuti kuis untuk menguji pemahaman Anda!`,
+          '🏆 Materi Selesai!',
+          `Luar biasa! Anda telah menyelesaikan semua pelajaran dalam materi "${module.title}". Ikuti kuis untuk menguji pemahaman Anda!`,
           [
             { text: 'Nanti', style: 'cancel' },
             { 
@@ -156,7 +156,7 @@ export default function ModuleDetailSimpleScreen() {
         const nextLesson = getNextLesson(lesson.id);
         Alert.alert(
           '🎉 Pelajaran Selesai!',
-          `Selamat! Anda telah menyelesaikan "${lesson.title}". Lanjutkan pembelajaran untuk mencapai ${completionPercentage}% dari total modul.`,
+          `Selamat! Anda telah menyelesaikan "${lesson.title}". Lanjutkan pembelajaran untuk mencapai ${completionPercentage}% dari total materi.`,
           [
             { text: 'Istirahat', style: 'cancel' },
             ...(nextLesson ? [{ 
@@ -331,7 +331,7 @@ export default function ModuleDetailSimpleScreen() {
       <ScrollView style={[styles.content, { backgroundColor: theme.background }]}>
         {activeTab === 'deskripsi' && (
           <View style={[styles.section, { backgroundColor: theme.background }]}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Tentang Modul</Text>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>Tentang Materi</Text>
             <Text style={[styles.description, { color: theme.textMuted }]}>{module.description}</Text>
             
             <View style={[styles.infoGrid, { backgroundColor: theme.surface }]}>
@@ -357,7 +357,7 @@ export default function ModuleDetailSimpleScreen() {
               style={[styles.quizButton, { backgroundColor: module.color }]}
               onPress={() => router.push(`/quiz/${module.id}`)}
             >
-              <Text style={styles.quizButtonText}>🧠 Ikuti Kuis Modul</Text>
+              <Text style={styles.quizButtonText}>🧠 Ikuti Kuis Materi</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -565,10 +565,10 @@ export default function ModuleDetailSimpleScreen() {
               <View style={[styles.completionCard, { borderColor: module.color, backgroundColor: theme.surface }]}>
                 <Ionicons name="trophy" size={32} color={module.color} />
                 <Text style={[styles.completionTitle, { color: module.color }]}>
-                  🎉 Modul Selesai!
+                  🎉 Materi Selesai!
                 </Text>
                 <Text style={[styles.completionText, { color: theme.text }]}>
-                  Selamat! Anda telah menyelesaikan semua pelajaran dalam modul ini.
+                  Selamat! Anda telah menyelesaikan semua pelajaran dalam materi ini.
                 </Text>
                 <TouchableOpacity
                   style={[styles.nextModuleBtn, { backgroundColor: module.color }]}

@@ -182,8 +182,8 @@ export default function HomeScreen() {
           },
           {
             id: '2',
-            title: 'Modul Baru Tersedia',
-            message: 'Modul "Asuhan Kehamilan (ANC)" telah diperbarui dengan video terbaru.',
+            title: 'Materi Baru Tersedia',
+            message: 'Materi "Asuhan Kehamilan (ANC)" telah diperbarui dengan video terbaru.',
             type: 'info',
             timestamp: Date.now() - 7200000, // 2 hours ago
             isRead: false,

@@ -210,7 +210,7 @@ export default function MateriScreen() {
           <Ionicons name="search-outline" size={18} color={Colors.slate400} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Cari modul..."
+            placeholder="Cari materi..."
             placeholderTextColor={Colors.slate400}
             value={search}
             onChangeText={setSearch}
@@ -306,7 +306,7 @@ export default function MateriScreen() {
 
                   {/* Description */}
                   <Text style={[styles.moduleDesc, { color: theme.textMuted }]} numberOfLines={2}>
-                    {module.description || 'Deskripsi modul pembelajaran'}
+                    {module.description || 'Deskripsi materi pembelajaran'}
                   </Text>
 
                   {/* Enhanced Meta */}
