@@ -139,17 +139,11 @@ export default function AdminDashboardScreen() {
       case 'content':
         router.push('/(admin)/content');
         break;
-      case 'approval':
-        router.push('/(admin)/approval');
-        break;
-      case 'monitoring':
-        router.push('/(admin)/monitoring');
+      case 'settings':
+        router.push('/(admin)/settings');
         break;
       case 'notifications':
         router.push('/(admin)/notifications');
-        break;
-      case 'settings':
-        router.push('/(admin)/system-settings');
         break;
       default:
         break;
@@ -243,18 +237,18 @@ export default function AdminDashboardScreen() {
             
             <View style={styles.overviewStats}>
               <View style={styles.overviewStat}>
-                <Text style={styles.overviewStatValue}>{stats.activeStudents}</Text>
-                <Text style={styles.overviewStatLabel}>Mahasiswa Aktif</Text>
+                <Text style={styles.overviewStatValue}>{stats.totalStudents}</Text>
+                <Text style={styles.overviewStatLabel}>Total Mahasiswa</Text>
               </View>
               <View style={styles.overviewStatDivider} />
               <View style={styles.overviewStat}>
-                <Text style={styles.overviewStatValue}>{stats.activeLecturers}</Text>
-                <Text style={styles.overviewStatLabel}>Dosen Aktif</Text>
+                <Text style={styles.overviewStatValue}>{stats.totalLecturers}</Text>
+                <Text style={styles.overviewStatLabel}>Total Dosen</Text>
               </View>
               <View style={styles.overviewStatDivider} />
               <View style={styles.overviewStat}>
-                <Text style={styles.overviewStatValue}>{stats.pendingApprovals}</Text>
-                <Text style={styles.overviewStatLabel}>Pending Approval</Text>
+                <Text style={styles.overviewStatValue}>{stats.totalMaterials}</Text>
+                <Text style={styles.overviewStatLabel}>Total Materi</Text>
               </View>
             </View>
           </View>
@@ -372,25 +366,13 @@ export default function AdminDashboardScreen() {
             
             <TouchableOpacity
               style={[styles.quickAction, { backgroundColor: Colors.amberLight }]}
-              onPress={() => handleQuickAction('approval')}
+              onPress={() => handleQuickAction('settings')}
               activeOpacity={0.8}
             >
-              <Ionicons name="checkmark-circle" size={28} color={Colors.amber} />
-              <Text style={[styles.quickActionText, { color: Colors.amber }]}>Persetujuan</Text>
+              <Ionicons name="settings" size={28} color={Colors.amber} />
+              <Text style={[styles.quickActionText, { color: Colors.amber }]}>Pengaturan</Text>
               <Text style={[styles.quickActionSubtext, { color: Colors.amber }]}>
-                {stats.pendingApprovals} menunggu
-              </Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={[styles.quickAction, { backgroundColor: Colors.roseLight }]}
-              onPress={() => handleQuickAction('monitoring')}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="analytics" size={28} color={Colors.rose} />
-              <Text style={[styles.quickActionText, { color: Colors.rose }]}>Monitoring</Text>
-              <Text style={[styles.quickActionSubtext, { color: Colors.rose }]}>
-                Real-time
+                Sistem
               </Text>
             </TouchableOpacity>
           </View>
