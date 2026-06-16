@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   StatusBar,
   TextInput,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,75 +15,8 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { Colors } from '../../src/constants/colors';
 import { ExportHelper } from '../../src/utils/exportHelper';
-
-// Sample grading data
-const SAMPLE_GRADES = [
-  {
-    id: '1',
-    studentName: 'Ananta Ziaurohman Az Zaki',
-    studentNim: '2210631170007',
-    quizTitle: 'Quiz Asuhan Kehamilan - Pemeriksaan Fisik',
-    module: 'Asuhan Kehamilan (ANC)',
-    score: 85,
-    maxScore: 100,
-    completedAt: '2 jam yang lalu',
-    status: 'graded',
-    attempts: 1,
-    timeSpent: '12 menit',
-  },
-  {
-    id: '2',
-    studentName: 'Sari Dewi Pratiwi',
-    studentNim: '2210631170008',
-    quizTitle: 'Quiz Asuhan Kehamilan - Pemeriksaan Fisik',
-    module: 'Asuhan Kehamilan (ANC)',
-    score: 78,
-    maxScore: 100,
-    completedAt: '3 jam yang lalu',
-    status: 'graded',
-    attempts: 2,
-    timeSpent: '15 menit',
-  },
-  {
-    id: '3',
-    studentName: 'Maya Sari Indah',
-    studentNim: '2210631170009',
-    quizTitle: 'Evaluasi Teknik Palpasi Leopold',
-    module: 'Asuhan Kehamilan (ANC)',
-    score: 0,
-    maxScore: 100,
-    completedAt: '1 hari yang lalu',
-    status: 'pending',
-    attempts: 1,
-    timeSpent: '8 menit',
-  },
-  {
-    id: '4',
-    studentName: 'Rina Safitri',
-    studentNim: '2210631170010',
-    quizTitle: 'Quiz Persalinan Normal - Kala I',
-    module: 'Asuhan Persalinan Normal',
-    score: 92,
-    maxScore: 100,
-    completedAt: '2 hari yang lalu',
-    status: 'graded',
-    attempts: 1,
-    timeSpent: '18 menit',
-  },
-  {
-    id: '5',
-    studentName: 'Lila Permata Sari',
-    studentNim: '2210631170011',
-    quizTitle: 'Quiz Persalinan Normal - Kala I',
-    module: 'Asuhan Persalinan Normal',
-    score: 0,
-    maxScore: 100,
-    completedAt: '3 hari yang lalu',
-    status: 'pending',
-    attempts: 1,
-    timeSpent: '10 menit',
-  },
-];
+import { collection, getDocs, setDoc, doc } from 'firebase/firestore';
+import { db } from '../../src/config/firebase';
 
 export default function PenilaianScreen() {
   const router = useRouter();
@@ -90,15 +24,51 @@ export default function PenilaianScreen() {
   
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all');
+  const [grades, setGrades] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadGrades();
+  }, []);
+
+  const loadGrades = async () => {
+    try {
+      setLoading(true);
+      const snap = await getDocs(collection(db, 'grades'));
+      
+      if (snap.empty) {
+        // Seed data penilaian ke Firestore
+        const sampleGrades = [
+          { id: '1', studentName: 'Ananta Ziaurohman Az Zaki', studentNim: '2210631170007', quizTitle: 'Quiz Asuhan Kehamilan - Pemeriksaan Fisik', module: 'Asuhan Kehamilan (ANC)', score: 85, maxScore: 100, completedAt: '2 jam yang lalu', status: 'graded', attempts: 1, timeSpent: '12 menit' },
+          { id: '2', studentName: 'Sari Dewi Pratiwi', studentNim: '2210631170008', quizTitle: 'Quiz Asuhan Kehamilan - Pemeriksaan Fisik', module: 'Asuhan Kehamilan (ANC)', score: 78, maxScore: 100, completedAt: '3 jam yang lalu', status: 'graded', attempts: 2, timeSpent: '15 menit' },
+          { id: '3', studentName: 'Maya Sari Indah', studentNim: '2210631170009', quizTitle: 'Evaluasi Teknik Palpasi Leopold', module: 'Asuhan Kehamilan (ANC)', score: 0, maxScore: 100, completedAt: '1 hari yang lalu', status: 'pending', attempts: 1, timeSpent: '8 menit' },
+          { id: '4', studentName: 'Rina Safitri', studentNim: '2210631170010', quizTitle: 'Quiz Persalinan Normal - Kala I', module: 'Asuhan Persalinan Normal', score: 92, maxScore: 100, completedAt: '2 hari yang lalu', status: 'graded', attempts: 1, timeSpent: '18 menit' },
+          { id: '5', studentName: 'Lila Permata Sari', studentNim: '2210631170011', quizTitle: 'Quiz Persalinan Normal - Kala I', module: 'Asuhan Persalinan Normal', score: 0, maxScore: 100, completedAt: '3 hari yang lalu', status: 'pending', attempts: 1, timeSpent: '10 menit' },
+        ];
+        
+        for (const g of sampleGrades) {
+          await setDoc(doc(db, 'grades', g.id), g);
+        }
+        setGrades(sampleGrades);
+      } else {
+        setGrades(snap.docs.map(d => ({ ...d.data(), id: d.id })));
+      }
+    } catch (error) {
+      console.error('Error loading grades:', error);
+      setGrades([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filters = [
-    { id: 'all', label: 'Semua', count: SAMPLE_GRADES.length },
-    { id: 'pending', label: 'Pending', count: SAMPLE_GRADES.filter(g => g.status === 'pending').length },
-    { id: 'graded', label: 'Dinilai', count: SAMPLE_GRADES.filter(g => g.status === 'graded').length },
+    { id: 'all', label: 'Semua', count: grades.length },
+    { id: 'pending', label: 'Pending', count: grades.filter(g => g.status === 'pending').length },
+    { id: 'graded', label: 'Dinilai', count: grades.filter(g => g.status === 'graded').length },
     { id: 'review', label: 'Review', count: 0 },
   ];
 
-  const filteredGrades = SAMPLE_GRADES.filter(grade => {
+  const filteredGrades = grades.filter(grade => {
     const matchesSearch = grade.studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          grade.studentNim.includes(searchQuery) ||
                          grade.quizTitle.toLowerCase().includes(searchQuery.toLowerCase());
@@ -132,12 +102,14 @@ export default function PenilaianScreen() {
     }
   };
 
-  const pendingCount = SAMPLE_GRADES.filter(g => g.status === 'pending').length;
-  const avgScore = Math.round(
-    SAMPLE_GRADES.filter(g => g.status === 'graded')
-                 .reduce((sum, g) => sum + g.score, 0) / 
-    SAMPLE_GRADES.filter(g => g.status === 'graded').length
-  );
+  const pendingCount = grades.filter(g => g.status === 'pending').length;
+  const avgScore = grades.filter(g => g.status === 'graded').length > 0
+    ? Math.round(
+        grades.filter(g => g.status === 'graded')
+              .reduce((sum, g) => sum + g.score, 0) / 
+        grades.filter(g => g.status === 'graded').length
+      )
+    : 0;
 
   return (
     <View style={[styles.root, { backgroundColor: theme.background }]}>
@@ -170,7 +142,7 @@ export default function PenilaianScreen() {
               />
             </TouchableOpacity>
             <TouchableOpacity style={styles.exportBtn}
-              onPress={() => ExportHelper.exportGrades(SAMPLE_GRADES)}
+              onPress={() => ExportHelper.exportGrades(grades)}
             >
               <Ionicons name="download-outline" size={20} color={Colors.white} />
             </TouchableOpacity>
@@ -250,7 +222,7 @@ export default function PenilaianScreen() {
                 <Ionicons name="checkmark-circle" size={18} color={Colors.primary} />
               </View>
               <Text style={[styles.statValue, { color: theme.text }]}>
-                {SAMPLE_GRADES.filter(g => g.status === 'graded').length}
+                {grades.filter(g => g.status === 'graded').length}
               </Text>
               <Text style={[styles.statLabel, { color: theme.textMuted }]}>Sudah Dinilai</Text>
             </View>
@@ -265,7 +237,7 @@ export default function PenilaianScreen() {
               <View style={[styles.statIconWrap, { backgroundColor: Colors.roseLight }]}>
                 <Ionicons name="document-text" size={18} color={Colors.rose} />
               </View>
-              <Text style={[styles.statValue, { color: theme.text }]}>{SAMPLE_GRADES.length}</Text>
+              <Text style={[styles.statValue, { color: theme.text }]}>{grades.length}</Text>
               <Text style={[styles.statLabel, { color: theme.textMuted }]}>Total Submissions</Text>
             </View>
           </View>

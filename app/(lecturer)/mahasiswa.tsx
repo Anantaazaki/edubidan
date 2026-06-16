@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,102 +8,92 @@ import {
   StatusBar,
   TextInput,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { Colors } from '../../src/constants/colors';
+import { collection, getDocs, query, where, setDoc, doc } from 'firebase/firestore';
+import { db } from '../../src/config/firebase';
 
-// Sample student data
-const SAMPLE_STUDENTS = [
-  {
-    id: '1',
-    name: 'Ananta Ziaurohman Az Zaki',
-    nim: '2210631170007',
-    email: 'ananta@student.unsika.ac.id',
-    avatar: null,
-    progress: 85,
-    completedModules: 4,
-    totalModules: 5,
-    lastActive: '2 jam yang lalu',
-    status: 'active',
-    joinDate: 'Sep 2022',
-  },
-  {
-    id: '2',
-    name: 'Sari Dewi Pratiwi',
-    nim: '2210631170008',
-    email: 'sari.dewi@student.unsika.ac.id',
-    avatar: null,
-    progress: 72,
-    completedModules: 3,
-    totalModules: 5,
-    lastActive: '1 hari yang lalu',
-    status: 'active',
-    joinDate: 'Sep 2022',
-  },
-  {
-    id: '3',
-    name: 'Maya Sari Indah',
-    nim: '2210631170009',
-    email: 'maya.sari@student.unsika.ac.id',
-    avatar: null,
-    progress: 94,
-    completedModules: 5,
-    totalModules: 5,
-    lastActive: '30 menit yang lalu',
-    status: 'active',
-    joinDate: 'Sep 2022',
-  },
-  {
-    id: '4',
-    name: 'Rina Safitri',
-    nim: '2210631170010',
-    email: 'rina.safitri@student.unsika.ac.id',
-    avatar: null,
-    progress: 58,
-    completedModules: 2,
-    totalModules: 5,
-    lastActive: '3 hari yang lalu',
-    status: 'inactive',
-    joinDate: 'Sep 2022',
-  },
-  {
-    id: '5',
-    name: 'Lila Permata Sari',
-    nim: '2210631170011',
-    email: 'lila.permata@student.unsika.ac.id',
-    avatar: null,
-    progress: 41,
-    completedModules: 2,
-    totalModules: 5,
-    lastActive: '1 minggu yang lalu',
-    status: 'inactive',
-    joinDate: 'Sep 2022',
-  },
-];
+interface StudentData {
+  id: string;
+  name: string;
+  nim: string;
+  email: string;
+  avatar: string | null;
+  progress: number;
+  completedModules: number;
+  totalModules: number;
+  lastActive: string;
+  status: string;
+  joinDate: string;
+}
 
 export default function MahasiswaScreen() {
   const router = useRouter();
   const { isDark, theme, toggleTheme } = useTheme();
-  
+  const [loading, setLoading] = useState(true);
+  const [students, setStudents] = useState<StudentData[]>([]);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all');
 
+  useEffect(() => {
+    loadStudents();
+  }, []);
+
+  const loadStudents = async () => {
+    try {
+      setLoading(true);
+      const snap = await getDocs(query(collection(db, 'students')));
+      
+      if (snap.empty) {
+        // Seed data mahasiswa ke Firestore
+        const sampleStudents: StudentData[] = [
+          { id: '1', name: 'Ananta Ziaurohman Az Zaki', nim: '2210631170007', email: 'ananta@student.unsika.ac.id', avatar: null, progress: 85, completedModules: 4, totalModules: 5, lastActive: '2 jam yang lalu', status: 'active', joinDate: 'Sep 2022' },
+          { id: '2', name: 'Sari Dewi Pratiwi', nim: '2210631170008', email: 'sari.dewi@student.unsika.ac.id', avatar: null, progress: 72, completedModules: 3, totalModules: 5, lastActive: '1 hari yang lalu', status: 'active', joinDate: 'Sep 2022' },
+          { id: '3', name: 'Maya Sari Indah', nim: '2210631170009', email: 'maya.sari@student.unsika.ac.id', avatar: null, progress: 45, completedModules: 2, totalModules: 5, lastActive: '3 hari yang lalu', status: 'active', joinDate: 'Sep 2022' },
+          { id: '4', name: 'Rina Safitri', nim: '2210631170010', email: 'rina.safitri@student.unsika.ac.id', avatar: null, progress: 92, completedModules: 5, totalModules: 5, lastActive: '5 jam yang lalu', status: 'active', joinDate: 'Sep 2022' },
+          { id: '5', name: 'Lila Permata Sari', nim: '2210631170011', email: 'lila.permata@student.unsika.ac.id', avatar: null, progress: 30, completedModules: 1, totalModules: 5, lastActive: '1 minggu yang lalu', status: 'inactive', joinDate: 'Sep 2022' },
+        ];
+        
+        // Simpan ke Firestore
+        for (const s of sampleStudents) {
+          await setDoc(doc(db, 'students', s.id), s);
+        }
+        setStudents(sampleStudents);
+      } else {
+        const data = snap.docs.map(d => ({ ...d.data(), id: d.id } as StudentData));
+        setStudents(data);
+      }
+    } catch (error) {
+      console.error('Error loading students:', error);
+      // Fallback offline
+      setStudents([
+        { id: '1', name: 'Ananta Ziaurohman Az Zaki', nim: '2210631170007', email: 'ananta@student.unsika.ac.id', avatar: null, progress: 85, completedModules: 4, totalModules: 5, lastActive: '2 jam yang lalu', status: 'active', joinDate: 'Sep 2022' },
+        { id: '2', name: 'Sari Dewi Pratiwi', nim: '2210631170008', email: 'sari.dewi@student.unsika.ac.id', avatar: null, progress: 72, completedModules: 3, totalModules: 5, lastActive: '1 hari yang lalu', status: 'active', joinDate: 'Sep 2022' },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const filters = [
-    { id: 'all', label: 'Semua', count: SAMPLE_STUDENTS.length },
-    { id: 'active', label: 'Aktif', count: SAMPLE_STUDENTS.filter(s => s.status === 'active').length },
-    { id: 'inactive', label: 'Tidak Aktif', count: SAMPLE_STUDENTS.filter(s => s.status === 'inactive').length },
-    { id: 'completed', label: 'Selesai', count: SAMPLE_STUDENTS.filter(s => s.completedModules === s.totalModules).length },
+    { id: 'all', label: 'Semua', count: students.length },
+    { id: 'active', label: 'Aktif', count: students.filter(s => s.status === 'active').length },
+    { id: 'inactive', label: 'Tidak Aktif', count: students.filter(s => s.status === 'inactive').length },
+    { id: 'completed', label: 'Selesai', count: students.filter(s => s.completedModules >= s.totalModules).length },
   ];
 
-  const filteredStudents = SAMPLE_STUDENTS.filter(student => {
+  const filteredStudents = students.filter(student => {
     const matchesSearch = student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          student.nim.includes(searchQuery) ||
                          student.email.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesFilter = selectedFilter === 'all' || 
-                         (selectedFilter === 'completed' && student.completedModules === student.totalModules) ||
+    const matchesFilter = selectedFilter === 'all' ||
+                         (selectedFilter === 'completed' && student.completedModules >= student.totalModules) ||
                          student.status === selectedFilter;
     return matchesSearch && matchesFilter;
   });
@@ -223,7 +213,7 @@ export default function MahasiswaScreen() {
               <View style={[styles.statIconWrap, { backgroundColor: Colors.primaryLight }]}>
                 <Ionicons name="people" size={18} color={Colors.primary} />
               </View>
-              <Text style={[styles.statValue, { color: theme.text }]}>{SAMPLE_STUDENTS.length}</Text>
+              <Text style={[styles.statValue, { color: theme.text }]}>{students.length}</Text>
               <Text style={[styles.statLabel, { color: theme.textMuted }]}>Total Mahasiswa</Text>
             </View>
             <View style={[styles.statCard, { backgroundColor: theme.card }]}>
@@ -231,7 +221,7 @@ export default function MahasiswaScreen() {
                 <Ionicons name="checkmark-circle" size={18} color={Colors.blue} />
               </View>
               <Text style={[styles.statValue, { color: theme.text }]}>
-                {SAMPLE_STUDENTS.filter(s => s.status === 'active').length}
+                {students.filter(s => s.status === 'active').length}
               </Text>
               <Text style={[styles.statLabel, { color: theme.textMuted }]}>Aktif</Text>
             </View>
@@ -240,7 +230,7 @@ export default function MahasiswaScreen() {
                 <Ionicons name="trophy" size={18} color={Colors.amber} />
               </View>
               <Text style={[styles.statValue, { color: theme.text }]}>
-                {SAMPLE_STUDENTS.filter(s => s.completedModules === s.totalModules).length}
+                {students.filter(s => s.completedModules >= s.totalModules).length}
               </Text>
               <Text style={[styles.statLabel, { color: theme.textMuted }]}>Selesai</Text>
             </View>
@@ -249,7 +239,7 @@ export default function MahasiswaScreen() {
                 <Ionicons name="trending-up" size={18} color={Colors.rose} />
               </View>
               <Text style={[styles.statValue, { color: theme.text }]}>
-                {Math.round(SAMPLE_STUDENTS.reduce((sum, s) => sum + s.progress, 0) / SAMPLE_STUDENTS.length)}%
+                {students.length > 0 ? Math.round(students.reduce((sum, s) => sum + s.progress, 0) / students.length) : 0}%
               </Text>
               <Text style={[styles.statLabel, { color: theme.textMuted }]}>Avg Progress</Text>
             </View>
