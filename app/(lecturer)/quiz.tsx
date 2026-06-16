@@ -445,7 +445,33 @@ export default function QuizScreen() {
           </View>
           
           <View style={styles.modalContent}>
-            <View style={[styles.createOption, { backgroundColor: theme.card }]}>
+            <TouchableOpacity 
+              style={[styles.createOption, { backgroundColor: theme.card }]}
+              onPress={async () => {
+                setShowCreateModal(false);
+                try {
+                  const result = await LecturerDatabase.createQuiz({
+                    title: 'Quiz Baru',
+                    description: 'Deskripsi quiz',
+                    materialId: '',
+                    questions: [
+                      { id: Date.now().toString(), question: 'Pertanyaan 1?', options: ['Opsi A', 'Opsi B', 'Opsi C', 'Opsi D'], correctAnswer: 0, type: 'multiple_choice' }
+                    ],
+                    timeLimit: 30,
+                    attempts: 0,
+                    avgScore: 0,
+                    status: 'draft',
+                    createdBy: 'lecturer1',
+                  });
+                  if (result.success && result.quiz) {
+                    router.push(`/(lecturer)/quiz-edit?quizId=${result.quiz.id}`);
+                    loadQuizzes();
+                  }
+                } catch (e) {
+                  Alert.alert('Error', 'Gagal membuat quiz baru');
+                }
+              }}
+            >
               <View style={[styles.createOptionIcon, { backgroundColor: Colors.primaryLight }]}>
                 <Ionicons name="create-outline" size={24} color={Colors.primary} />
               </View>
@@ -456,9 +482,19 @@ export default function QuizScreen() {
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
-            </View>
+            </TouchableOpacity>
 
-            <View style={[styles.createOption, { backgroundColor: theme.card }]}>
+            <TouchableOpacity 
+              style={[styles.createOption, { backgroundColor: theme.card }]}
+              onPress={() => {
+                setShowCreateModal(false);
+                if (quizzes.length > 0) {
+                  handleDuplicateQuiz(quizzes[0]);
+                } else {
+                  Alert.alert('Info', 'Belum ada quiz untuk diduplikasi');
+                }
+              }}
+            >
               <View style={[styles.createOptionIcon, { backgroundColor: Colors.blueLight }]}>
                 <Ionicons name="copy-outline" size={24} color={Colors.blue} />
               </View>
@@ -469,9 +505,15 @@ export default function QuizScreen() {
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
-            </View>
+            </TouchableOpacity>
 
-            <View style={[styles.createOption, { backgroundColor: theme.card }]}>
+            <TouchableOpacity 
+              style={[styles.createOption, { backgroundColor: theme.card }]}
+              onPress={() => {
+                setShowCreateModal(false);
+                Alert.alert('Info', 'Fitur template akan segera tersedia');
+              }}
+            >
               <View style={[styles.createOptionIcon, { backgroundColor: Colors.amberLight }]}>
                 <Ionicons name="library-outline" size={24} color={Colors.amber} />
               </View>
@@ -482,9 +524,15 @@ export default function QuizScreen() {
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
-            </View>
+            </TouchableOpacity>
 
-            <View style={[styles.createOption, { backgroundColor: theme.card }]}>
+            <TouchableOpacity 
+              style={[styles.createOption, { backgroundColor: theme.card }]}
+              onPress={() => {
+                setShowCreateModal(false);
+                Alert.alert('Info', 'Fitur import akan segera tersedia');
+              }}
+            >
               <View style={[styles.createOptionIcon, { backgroundColor: Colors.roseLight }]}>
                 <Ionicons name="cloud-upload-outline" size={24} color={Colors.rose} />
               </View>
@@ -495,7 +543,7 @@ export default function QuizScreen() {
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
-            </View>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
