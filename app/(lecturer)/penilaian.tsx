@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { Colors } from '../../src/constants/colors';
+import { ExportHelper } from '../../src/utils/exportHelper';
 
 // Sample grading data
 const SAMPLE_GRADES = [
@@ -168,7 +169,9 @@ export default function PenilaianScreen() {
                 color={Colors.white} 
               />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.exportBtn}>
+            <TouchableOpacity style={styles.exportBtn}
+              onPress={() => ExportHelper.exportGrades(SAMPLE_GRADES)}
+            >
               <Ionicons name="download-outline" size={20} color={Colors.white} />
             </TouchableOpacity>
           </View>

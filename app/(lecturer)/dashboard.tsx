@@ -428,7 +428,11 @@ export default function LecturerDashboardScreen() {
             </TouchableOpacity>
           </View>
           
-          <View style={[styles.activityCard, { backgroundColor: theme.card }]}>
+          <TouchableOpacity 
+            style={[styles.activityCard, { backgroundColor: theme.card }]}
+            onPress={() => router.push('/(lecturer)/penilaian')}
+            activeOpacity={0.8}
+          >
             <View style={[styles.activityIcon, { backgroundColor: Colors.primaryLight }]}>
               <Ionicons name="document-text" size={20} color={Colors.primary} />
             </View>
@@ -443,9 +447,13 @@ export default function LecturerDashboardScreen() {
             <View style={[styles.activityBadge, { backgroundColor: Colors.primaryLight }]}>
               <Text style={[styles.activityBadgeText, { color: Colors.primary }]}>Baru</Text>
             </View>
-          </View>
+          </TouchableOpacity>
 
-          <View style={[styles.activityCard, { backgroundColor: theme.card }]}>
+          <TouchableOpacity 
+            style={[styles.activityCard, { backgroundColor: theme.card }]}
+            onPress={() => router.push('/(lecturer)/quiz')}
+            activeOpacity={0.8}
+          >
             <View style={[styles.activityIcon, { backgroundColor: Colors.amberLight }]}>
               <Ionicons name="help-circle" size={20} color={Colors.amber} />
             </View>
@@ -460,7 +468,7 @@ export default function LecturerDashboardScreen() {
             <View style={[styles.activityBadge, { backgroundColor: Colors.amberLight }]}>
               <Text style={[styles.activityBadgeText, { color: Colors.amber }]}>Review</Text>
             </View>
-          </View>
+          </TouchableOpacity>
         </View>
         {/* ── Module Management Overview ── */}
         <View style={[styles.section, { backgroundColor: theme.background }]}>
