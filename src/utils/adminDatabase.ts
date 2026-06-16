@@ -187,25 +187,25 @@ export class AdminDatabase {
         ]);
 
       return {
-        totalStudents: studentsSnap.size || 1247,
-        totalLecturers: lecturersSnap.size || 45,
-        totalAdmins: adminsSnap.size || 3,
-        totalMaterials: materialsSnap.size || 156,
-        totalVideos: videosSnap.size || 324,
-        totalQuizzes: quizzesSnap.size || 89,
+        totalStudents: studentsSnap.size,
+        totalLecturers: lecturersSnap.size,
+        totalAdmins: adminsSnap.size,
+        totalMaterials: materialsSnap.size,
+        totalVideos: videosSnap.size,
+        totalQuizzes: quizzesSnap.size,
         totalCategories: 8,
-        activeStudents: Math.floor((studentsSnap.size || 1247) * 0.71),
-        activeLecturers: Math.floor((lecturersSnap.size || 45) * 0.84),
-        pendingApprovals: 12,
-        totalViews: 15467,
-        averageScore: 78.5,
+        activeStudents: studentsSnap.size,
+        activeLecturers: lecturersSnap.size,
+        pendingApprovals: 0,
+        totalViews: 0,
+        averageScore: 0,
       };
     } catch (error) {
       return {
-        totalStudents: 1247, totalLecturers: 45, totalAdmins: 3,
-        totalMaterials: 156, totalVideos: 324, totalQuizzes: 89,
-        totalCategories: 8, activeStudents: 892, activeLecturers: 38,
-        pendingApprovals: 12, totalViews: 15467, averageScore: 78.5,
+        totalStudents: 0, totalLecturers: 0, totalAdmins: 0,
+        totalMaterials: 0, totalVideos: 0, totalQuizzes: 0,
+        totalCategories: 0, activeStudents: 0, activeLecturers: 0,
+        pendingApprovals: 0, totalViews: 0, averageScore: 0,
       };
     }
   }

@@ -65,24 +65,6 @@ export default function AdminLayout() {
         }}
       />
       <Tabs.Screen
-        name="approval"
-        options={{
-          title: 'Persetujuan',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="checkmark-circle-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="monitoring"
-        options={{
-          title: 'Monitoring',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="analytics-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="settings"
         options={{
           title: 'Pengaturan',
@@ -92,43 +74,13 @@ export default function AdminLayout() {
         }}
       />
       
-      {/* Hidden detail pages */}
-      <Tabs.Screen
-        name="user-detail"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="content-detail"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="notifications"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="audit-log"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="system-settings"
-        options={{
-          href: null,
-        }}
-      />
+      {/* Hidden pages */}
+      <Tabs.Screen name="approval" options={{ href: null }} />
+      <Tabs.Screen name="monitoring" options={{ href: null }} />
+      <Tabs.Screen name="notifications" options={{ href: null }} />
+      <Tabs.Screen name="audit-log" options={{ href: null }} />
+      <Tabs.Screen name="profile" options={{ href: null }} />
+      <Tabs.Screen name="system-settings" options={{ href: null }} />
     </Tabs>
   );
 }

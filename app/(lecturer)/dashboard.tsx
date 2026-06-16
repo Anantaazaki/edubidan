@@ -115,45 +115,29 @@ export default function LecturerDashboardScreen() {
 
   const loadLecturerNotifications = async () => {
     try {
-      const stored = await AsyncStorage.getItem(LECTURER_NOTIFICATIONS_KEY);
-      if (stored) {
-        const parsedNotifications: Notification[] = JSON.parse(stored);
-        setNotifications(parsedNotifications);
-        setUnreadCount(parsedNotifications.filter(n => !n.isRead).length);
+      // Ambil notifikasi dari Firestore
+      const { NotificationHelper } = await import('../../src/utils/notificationHelper');
+      const notifs = await NotificationHelper.getAllNotifications();
+      
+      if (notifs.length > 0) {
+        const mappedNotifs: Notification[] = notifs.map(n => ({
+          id: n.id,
+          title: n.title,
+          message: n.message,
+          type: n.type === 'achievement' ? 'success' : n.type === 'warning' ? 'warning' : 'info',
+          timestamp: n.timestamp,
+          isRead: n.isRead,
+        }));
+        setNotifications(mappedNotifs);
+        setUnreadCount(mappedNotifs.filter(n => !n.isRead).length);
       } else {
-        // Initialize with sample lecturer notifications
-        const sampleNotifications: Notification[] = [
-          {
-            id: '1',
-            title: 'Tugas Baru Dikumpulkan',
-            message: '5 mahasiswa telah mengumpulkan tugas Asuhan Kehamilan.',
-            type: 'info',
-            timestamp: Date.now() - 1800000, // 30 minutes ago
-            isRead: false,
-          },
-          {
-            id: '2',
-            title: 'Quiz Selesai',
-            message: 'Quiz Asuhan Persalinan telah diselesaikan oleh 12 mahasiswa.',
-            type: 'success',
-            timestamp: Date.now() - 3600000, // 1 hour ago
-            isRead: false,
-          },
-          {
-            id: '3',
-            title: 'Nilai Perlu Ditinjau',
-            message: '8 nilai quiz menunggu peninjauan dan konfirmasi.',
-            type: 'warning',
-            timestamp: Date.now() - 7200000, // 2 hours ago
-            isRead: true,
-          },
-        ];
-        setNotifications(sampleNotifications);
-        setUnreadCount(sampleNotifications.filter(n => !n.isRead).length);
-        await AsyncStorage.setItem(LECTURER_NOTIFICATIONS_KEY, JSON.stringify(sampleNotifications));
+        setNotifications([]);
+        setUnreadCount(0);
       }
     } catch (error) {
       console.error('Error loading notifications:', error);
+      setNotifications([]);
+      setUnreadCount(0);
     }
   };
 

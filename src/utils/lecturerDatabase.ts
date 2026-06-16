@@ -322,16 +322,16 @@ export class LecturerDatabase {
       ]);
 
       return {
-        totalStudents: usersSnap.size || 45,
+        totalStudents: usersSnap.size,
         totalMaterials: materialsSnap.size,
-        totalVideos: videosSnap.size || 62,
+        totalVideos: videosSnap.size,
         totalQuizzes: quizzesSnap.size,
-        pendingGrades: 8,
-        completionRate: 78,
+        pendingGrades: 0,
+        completionRate: 0,
       };
     } catch (error) {
-      return { totalStudents: 45, totalMaterials: 5, totalVideos: 62,
-               totalQuizzes: 25, pendingGrades: 8, completionRate: 78 };
+      return { totalStudents: 0, totalMaterials: 0, totalVideos: 0,
+               totalQuizzes: 0, pendingGrades: 0, completionRate: 0 };
     }
   }
 

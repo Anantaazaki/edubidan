@@ -348,17 +348,29 @@ export default function PenilaianScreen() {
               </View>
 
               <View style={styles.gradeActions}>
-                <TouchableOpacity style={[styles.actionBtn, { backgroundColor: theme.surface }]}>
+                <TouchableOpacity style={[styles.actionBtn, { backgroundColor: theme.surface }]}
+                  onPress={() => Alert.alert('Detail Nilai', `Mahasiswa: ${grade.studentName}\nQuiz: ${grade.quizTitle}\nSkor: ${grade.score}/${grade.maxScore}\nWaktu: ${grade.timeSpent}\nPercobaan: ${grade.attempts}`)}
+                >
                   <Ionicons name="eye-outline" size={14} color={Colors.primary} />
                   <Text style={[styles.actionBtnText, { color: Colors.primary }]}>Lihat Detail</Text>
                 </TouchableOpacity>
                 {grade.status === 'pending' && (
-                  <TouchableOpacity style={[styles.actionBtn, { backgroundColor: Colors.primaryLight }]}>
+                  <TouchableOpacity style={[styles.actionBtn, { backgroundColor: Colors.primaryLight }]}
+                    onPress={() => Alert.alert('Review', `Review nilai ${grade.studentName} untuk quiz "${grade.quizTitle}"`, [
+                      { text: 'Batal', style: 'cancel' },
+                      { text: 'Setujui Nilai', onPress: () => Alert.alert('Sukses', 'Nilai berhasil disetujui') }
+                    ])}
+                  >
                     <Ionicons name="create-outline" size={14} color={Colors.primary} />
                     <Text style={[styles.actionBtnText, { color: Colors.primary }]}>Review</Text>
                   </TouchableOpacity>
                 )}
-                <TouchableOpacity style={[styles.actionBtn, { backgroundColor: theme.surface }]}>
+                <TouchableOpacity style={[styles.actionBtn, { backgroundColor: theme.surface }]}
+                  onPress={() => Alert.alert('Feedback', `Kirim feedback ke ${grade.studentName}`, [
+                    { text: 'Batal', style: 'cancel' },
+                    { text: 'Kirim', onPress: () => Alert.alert('Sukses', 'Feedback berhasil dikirim') }
+                  ])}
+                >
                   <Ionicons name="chatbubble-outline" size={14} color={Colors.blue} />
                   <Text style={[styles.actionBtnText, { color: Colors.blue }]}>Feedback</Text>
                 </TouchableOpacity>
