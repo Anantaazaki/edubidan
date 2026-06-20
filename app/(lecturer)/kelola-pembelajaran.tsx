@@ -43,7 +43,7 @@ export default function KelolaPembelajaranScreen() {
   useFocusEffect(useCallback(() => { loadAll(); }, []));
 
   const loadAll = async () => {
-    // Tampilkan cache dulu (instant)
+    // Tampilkan cache dulu (instant) - tidak perlu loading spinner
     try {
       const cached = await AsyncStorage.getItem('@lecturer_content_cache');
       if (cached) {
@@ -51,13 +51,27 @@ export default function KelolaPembelajaranScreen() {
         if (m) setMaterials(m);
         if (v) setVideos(v);
         if (q) setQuizzes(q);
-        setLoading(false); // Stop loading spinner karena ada cache
+        // Ada cache - tidak perlu loading spinner sama sekali
+        // Update Firestore di background tanpa spinner
+        LecturerDatabase.initializeDatabase().then(() =>
+          Promise.all([
+            LecturerDatabase.getAllMaterials(),
+            LecturerDatabase.getAllVideos(),
+            LecturerDatabase.getAllQuizzes(),
+          ])
+        ).then(([m2, v2, q2]) => {
+          setMaterials(m2);
+          setVideos(v2);
+          setQuizzes(q2);
+          AsyncStorage.setItem('@lecturer_content_cache', JSON.stringify({ materials: m2, videos: v2, quizzes: q2 })).catch(() => {});
+        }).catch(() => {});
+        return; // Selesai - tidak tampilkan loading
       }
     } catch (_) {}
 
-    // Update dari Firestore di background
+    // Tidak ada cache - tampilkan loading spinner
+    setLoading(true);
     try {
-      setLoading(prev => materials.length === 0 && videos.length === 0); // hanya loading jika belum ada data
       await LecturerDatabase.initializeDatabase();
       const [m, v, q] = await Promise.all([
         LecturerDatabase.getAllMaterials(),
@@ -67,8 +81,7 @@ export default function KelolaPembelajaranScreen() {
       setMaterials(m);
       setVideos(v);
       setQuizzes(q);
-      // Simpan ke cache
-      await AsyncStorage.setItem('@lecturer_content_cache', JSON.stringify({ materials: m, videos: v, quizzes: q }));
+      await AsyncStorage.setItem('@lecturer_content_cache', JSON.stringify({ materials: m, videos: v, quizzes: q })).catch(() => {});
     } catch (e) {
       console.error('Error loading data:', e);
     } finally {
