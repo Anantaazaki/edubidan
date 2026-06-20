@@ -82,38 +82,12 @@ export default function LecturerTabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="materi-saya"
+        name="kelola-pembelajaran"
         options={{
-          title: 'Materi',
+          title: 'Pembelajaran',
           tabBarIcon: ({ focused, color, size }) => (
             <Ionicons
-              name={focused ? 'book' : 'book-outline'}
-              size={size}
-              color={color}
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="video-pembelajaran"
-        options={{
-          title: 'Video',
-          tabBarIcon: ({ focused, color, size }) => (
-            <Ionicons
-              name={focused ? 'play-circle' : 'play-circle-outline'}
-              size={size}
-              color={color}
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="quiz"
-        options={{
-          title: 'Quiz',
-          tabBarIcon: ({ focused, color, size }) => (
-            <Ionicons
-              name={focused ? 'help-circle' : 'help-circle-outline'}
+              name={focused ? 'library' : 'library-outline'}
               size={size}
               color={color}
             />
@@ -146,6 +120,11 @@ export default function LecturerTabsLayout() {
           ),
         }}
       />
+      
+      {/* Hidden pages - akses via navigasi */}
+      <Tabs.Screen name="materi-saya" options={{ href: null }} />
+      <Tabs.Screen name="video-pembelajaran" options={{ href: null }} />
+      <Tabs.Screen name="quiz" options={{ href: null }} />
       
       {/* Hide detail/sub-pages from tab navigation */}
       <Tabs.Screen

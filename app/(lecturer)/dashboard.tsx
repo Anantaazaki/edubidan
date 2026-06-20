@@ -223,13 +223,13 @@ export default function LecturerDashboardScreen() {
   const handleQuickAction = (action: string) => {
     switch (action) {
       case 'materials':
-        router.push('/(lecturer)/materi-saya');
+        router.push('/(lecturer)/kelola-pembelajaran');
         break;
       case 'students':
         router.push('/(lecturer)/mahasiswa');
         break;
       case 'quiz':
-        router.push('/(lecturer)/quiz');
+        router.push('/(lecturer)/kelola-pembelajaran');
         break;
       case 'grading':
         router.push('/(lecturer)/penilaian');
