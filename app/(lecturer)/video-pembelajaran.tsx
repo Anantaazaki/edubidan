@@ -139,7 +139,7 @@ export default function VideoPembelajaranScreen() {
         duration: newVideo.duration || '0:00',
         views: 0,
         status: 'draft',
-        createdBy: 'lecturer1', // TODO: Get from auth context
+        createdBy: require('../../src/config/firebase').auth.currentUser?.uid || 'lecturer1', // TODO: Get from auth context
       });
 
       if (result.success) {

@@ -111,7 +111,7 @@ export default function MateriSayaScreen() {
         description: newMaterial.description || 'Deskripsi materi pembelajaran.',
         content: newMaterial.content || 'Konten materi akan ditambahkan di sini.',
         status: 'draft',
-        createdBy: 'lecturer1', // TODO: Get from auth context
+        createdBy: require('../../src/config/firebase').auth.currentUser?.uid || 'lecturer1', // TODO: Get from auth context
         totalLessons: newMaterial.totalLessons,
         estimatedDuration: newMaterial.estimatedDuration || '1 jam',
       });

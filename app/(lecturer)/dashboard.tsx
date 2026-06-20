@@ -18,6 +18,7 @@ import { Colors } from '../../src/constants/colors';
 import { MODULES } from '../../src/constants/modules';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LecturerDatabase, Material } from '../../src/utils/lecturerDatabase';
+import { UserDatabase } from '../../src/utils/userDatabase';
 
 // Notification interface
 interface Notification {
@@ -31,34 +32,20 @@ interface Notification {
 
 const LECTURER_NOTIFICATIONS_KEY = '@edubidan_lecturer_notifications';
 
-const LECTURER_USER = {
-  name: 'Dr. Siti Aminah, M.Keb',
-  nip: '196805151992032001',
-  jabatan: 'Dosen Kebidanan',
-  universitas: 'UNSIKA',
-  fakultas: 'Kesehatan',
-  joinDate: 'Januari 2010',
-};
-
 export default function LecturerDashboardScreen() {
   const router = useRouter();
   const { isDark, theme, toggleTheme } = useTheme();
   
-  // State for lecturer dashboard
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [materials, setMaterials] = useState<Material[]>([]);
+  const [currentUser, setCurrentUser] = useState({ name: '', nip: '', jabatan: 'Dosen Kebidanan', universitas: 'UNSIKA' });
   
-  // Dashboard stats state
   const [dashboardStats, setDashboardStats] = useState({
-    totalStudents: 0,
-    totalMaterials: 0,
-    totalVideos: 0,
-    totalQuizzes: 0,
-    pendingGrades: 0,
-    completionRate: 0,
+    totalStudents: 0, totalMaterials: 0, totalVideos: 0,
+    totalQuizzes: 0, pendingGrades: 0, completionRate: 0,
   });
 
   useEffect(() => {
@@ -68,6 +55,17 @@ export default function LecturerDashboardScreen() {
   const initializeData = async () => {
     try {
       setLoading(true);
+      
+      // Load current user dari Firebase
+      const user = await UserDatabase.getCurrentUser();
+      if (user) {
+        setCurrentUser({
+          name: user.name,
+          nip: user.nim || '-',
+          jabatan: user.prodi || 'Dosen Kebidanan',
+          universitas: user.universitas || 'UNSIKA',
+        });
+      }
       
       // Initialize database with sample data
       await LecturerDatabase.initializeDatabase();
@@ -254,10 +252,10 @@ export default function LecturerDashboardScreen() {
             <View style={styles.headerLeft}>
               <Text style={styles.greeting}>{getGreeting()},</Text>
               <Text style={styles.userName} numberOfLines={1}>
-                Dr. {LECTURER_USER.name.split(' ')[1]}
+                Dr. {currentUser.name.split(' ').slice(1).join(' ') || currentUser.name}
               </Text>
               <Text style={styles.userInfo}>
-                {LECTURER_USER.nip} • {LECTURER_USER.jabatan}
+                {currentUser.nip} • {currentUser.jabatan}
               </Text>
               <Text style={styles.dateInfo}>{getCurrentDate()}</Text>
             </View>
@@ -269,7 +267,7 @@ export default function LecturerDashboardScreen() {
               >
                 <View style={styles.profileAvatar}>
                   <Text style={styles.profileAvatarText}>
-                    {LECTURER_USER.name.charAt(0).toUpperCase()}
+                    {currentUser.name.charAt(0).toUpperCase() || 'D'}
                   </Text>
                 </View>
               </TouchableOpacity>

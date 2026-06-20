@@ -111,7 +111,7 @@ export default function QuizScreen() {
                   attempts: quiz.attempts,
                   avgScore: 0,
                   status: 'draft' as const,
-                  createdBy: 'lecturer1',
+                  createdBy: require('../../src/config/firebase').auth.currentUser?.uid || 'lecturer1',
                 };
 
                 const result = await LecturerDatabase.createQuiz(duplicateData);
@@ -461,7 +461,7 @@ export default function QuizScreen() {
                     attempts: 0,
                     avgScore: 0,
                     status: 'draft',
-                    createdBy: 'lecturer1',
+                    createdBy: require('../../src/config/firebase').auth.currentUser?.uid || 'lecturer1',
                   });
                   if (result.success && result.quiz) {
                     router.push(`/(lecturer)/quiz-edit?quizId=${result.quiz.id}`);
