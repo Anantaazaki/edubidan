@@ -155,21 +155,36 @@ export default function KelolaPembelajaranScreen() {
       if (result.success) {
         Alert.alert('Sukses ✅', `${activeTab === 'materi' ? 'Materi' : activeTab === 'video' ? 'Video' : 'Quiz'} berhasil ${editingItem ? 'diperbarui' : 'ditambahkan'}`);
         setShowModal(false);
-        resetForm();
-        // Update state lokal langsung tanpa fetch ulang (lebih cepat)
+
+        // Update state lokal LANGSUNG tanpa fetch Firestore
+        const now = Date.now();
         if (activeTab === 'materi') {
-          const updated = await LecturerDatabase.getAllMaterials();
-          setMaterials(updated);
-          AsyncStorage.setItem('@lecturer_content_cache', JSON.stringify({ materials: updated, videos, quizzes })).catch(() => {});
+          if (editingItem) {
+            setMaterials(prev => prev.map(m => m.id === editingItem.id
+              ? { ...m, title: formTitle.trim(), description: formDesc.trim(), category: formCategory, estimatedDuration: formDuration || '1 jam', updatedAt: now }
+              : m));
+          } else if ((result as any).material) {
+            setMaterials(prev => [(result as any).material, ...prev]);
+          }
         } else if (activeTab === 'video') {
-          const updated = await LecturerDatabase.getAllVideos();
-          setVideos(updated);
-          AsyncStorage.setItem('@lecturer_content_cache', JSON.stringify({ materials, videos: updated, quizzes })).catch(() => {});
+          if (editingItem) {
+            setVideos(prev => prev.map(v => v.id === editingItem.id
+              ? { ...v, title: formTitle.trim(), description: formDesc.trim(), url: formUrl.trim(), duration: formDuration || '0:00', updatedAt: now }
+              : v));
+          } else if ((result as any).video) {
+            setVideos(prev => [(result as any).video, ...prev]);
+          }
         } else {
-          const updated = await LecturerDatabase.getAllQuizzes();
-          setQuizzes(updated);
-          AsyncStorage.setItem('@lecturer_content_cache', JSON.stringify({ materials, videos, quizzes: updated })).catch(() => {});
+          if (editingItem) {
+            setQuizzes(prev => prev.map(q => q.id === editingItem.id
+              ? { ...q, title: formTitle.trim(), description: formDesc.trim(), timeLimit: parseInt(formTimeLimit) || 30, updatedAt: now }
+              : q));
+          } else if ((result as any).quiz) {
+            setQuizzes(prev => [(result as any).quiz, ...prev]);
+          }
         }
+
+        resetForm();
       } else {
         Alert.alert('Error', result.message);
       }
