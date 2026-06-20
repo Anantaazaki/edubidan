@@ -37,21 +37,23 @@ export default function MahasiswaScreen() {
   const { isDark, theme, toggleTheme } = useTheme();
   const [loading, setLoading] = useState(true);
   const [students, setStudents] = useState<StudentData[]>([]);
+  const [grades, setGrades] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<'mahasiswa' | 'penilaian'>('mahasiswa');
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all');
 
-  useEffect(() => {
-    loadStudents();
-  }, []);
+  useEffect(() => { loadAll(); }, []);
 
-  const loadStudents = async () => {
+  const loadAll = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const snap = await getDocs(query(collection(db, 'students')));
-      
-      if (snap.empty) {
-        // Seed data mahasiswa ke Firestore
+      const [studentsSnap, gradesSnap] = await Promise.all([
+        getDocs(query(collection(db, 'students'))),
+        getDocs(collection(db, 'grades')),
+      ]);
+
+      if (studentsSnap.empty) {
         const sampleStudents: StudentData[] = [
           { id: '1', name: 'Ananta Ziaurohman Az Zaki', nim: '2210631170007', email: 'ananta@student.unsika.ac.id', avatar: null, progress: 85, completedModules: 4, totalModules: 5, lastActive: '2 jam yang lalu', status: 'active', joinDate: 'Sep 2022' },
           { id: '2', name: 'Sari Dewi Pratiwi', nim: '2210631170008', email: 'sari.dewi@student.unsika.ac.id', avatar: null, progress: 72, completedModules: 3, totalModules: 5, lastActive: '1 hari yang lalu', status: 'active', joinDate: 'Sep 2022' },
@@ -59,22 +61,17 @@ export default function MahasiswaScreen() {
           { id: '4', name: 'Rina Safitri', nim: '2210631170010', email: 'rina.safitri@student.unsika.ac.id', avatar: null, progress: 92, completedModules: 5, totalModules: 5, lastActive: '5 jam yang lalu', status: 'active', joinDate: 'Sep 2022' },
           { id: '5', name: 'Lila Permata Sari', nim: '2210631170011', email: 'lila.permata@student.unsika.ac.id', avatar: null, progress: 30, completedModules: 1, totalModules: 5, lastActive: '1 minggu yang lalu', status: 'inactive', joinDate: 'Sep 2022' },
         ];
-        
-        // Simpan ke Firestore
-        for (const s of sampleStudents) {
-          await setDoc(doc(db, 'students', s.id), s);
-        }
+        for (const s of sampleStudents) await setDoc(doc(db, 'students', s.id), s);
         setStudents(sampleStudents);
       } else {
-        const data = snap.docs.map(d => ({ ...d.data(), id: d.id } as StudentData));
-        setStudents(data);
+        setStudents(studentsSnap.docs.map(d => ({ ...d.data(), id: d.id } as StudentData)));
       }
+
+      setGrades(gradesSnap.docs.map(d => ({ ...d.data(), id: d.id })));
     } catch (error) {
-      console.error('Error loading students:', error);
-      // Fallback offline
+      console.error('Error loading data:', error);
       setStudents([
         { id: '1', name: 'Ananta Ziaurohman Az Zaki', nim: '2210631170007', email: 'ananta@student.unsika.ac.id', avatar: null, progress: 85, completedModules: 4, totalModules: 5, lastActive: '2 jam yang lalu', status: 'active', joinDate: 'Sep 2022' },
-        { id: '2', name: 'Sari Dewi Pratiwi', nim: '2210631170008', email: 'sari.dewi@student.unsika.ac.id', avatar: null, progress: 72, completedModules: 3, totalModules: 5, lastActive: '1 hari yang lalu', status: 'active', joinDate: 'Sep 2022' },
       ]);
     } finally {
       setLoading(false);
@@ -126,41 +123,57 @@ export default function MahasiswaScreen() {
       >
         <View style={styles.headerTop}>
           <View style={styles.headerLeft}>
-            <Text style={styles.headerTitle}>Mahasiswa</Text>
+            <Text style={styles.headerTitle}>
+              {activeTab === 'mahasiswa' ? 'Mahasiswa' : 'Penilaian'}
+            </Text>
             <Text style={styles.headerSubtitle}>
-              Pantau progress dan aktivitas mahasiswa
+              {activeTab === 'mahasiswa' ? 'Pantau progress mahasiswa' : 'Hasil quiz mahasiswa'}
             </Text>
           </View>
           <View style={styles.headerRight}>
-            <TouchableOpacity
-              style={styles.themeToggle}
-              onPress={toggleTheme}
-            >
-              <Ionicons 
-                name={isDark ? 'sunny' : 'moon'} 
-                size={20} 
-                color={Colors.white} 
-              />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.exportBtn}>
-              <Ionicons name="download-outline" size={20} color={Colors.white} />
+            <TouchableOpacity style={styles.themeToggle} onPress={toggleTheme}>
+              <Ionicons name={isDark ? 'sunny' : 'moon'} size={20} color={Colors.white} />
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Search Bar */}
-        <View style={styles.searchContainer}>
-          <View style={styles.searchBar}>
-            <Ionicons name="search" size={16} color="rgba(255,255,255,0.6)" />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Cari mahasiswa..."
-              placeholderTextColor="rgba(255,255,255,0.6)"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-          </View>
+        {/* Tab Pills */}
+        <View style={styles.tabPills}>
+          <TouchableOpacity
+            style={[styles.tabPill, activeTab === 'mahasiswa' ? styles.tabPillActive : styles.tabPillInactive]}
+            onPress={() => setActiveTab('mahasiswa')}
+          >
+            <Ionicons name="people-outline" size={14} color={activeTab === 'mahasiswa' ? Colors.primary : Colors.white} />
+            <Text style={[styles.tabPillText, { color: activeTab === 'mahasiswa' ? Colors.primary : Colors.white }]}>
+              Mahasiswa ({students.length})
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tabPill, activeTab === 'penilaian' ? styles.tabPillActive : styles.tabPillInactive]}
+            onPress={() => setActiveTab('penilaian')}
+          >
+            <Ionicons name="star-outline" size={14} color={activeTab === 'penilaian' ? Colors.amber : Colors.white} />
+            <Text style={[styles.tabPillText, { color: activeTab === 'penilaian' ? Colors.amber : Colors.white }]}>
+              Penilaian ({grades.length})
+            </Text>
+          </TouchableOpacity>
         </View>
+
+        {/* Search Bar - hanya untuk mahasiswa */}
+        {activeTab === 'mahasiswa' && (
+          <View style={styles.searchContainer}>
+            <View style={styles.searchBar}>
+              <Ionicons name="search" size={16} color="rgba(255,255,255,0.6)" />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Cari mahasiswa..."
+                placeholderTextColor="rgba(255,255,255,0.6)"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+            </View>
+          </View>
+        )}
       </LinearGradient>
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* ── Filter Tabs ── */}
@@ -294,6 +307,57 @@ export default function MahasiswaScreen() {
 
         <View style={styles.bottomPad} />
       </ScrollView>
+      {activeTab === 'penilaian' && (
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <View style={[styles.section, { backgroundColor: theme.background }]}>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>
+              Hasil Quiz ({grades.length})
+            </Text>
+            {grades.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="star-outline" size={48} color={theme.textMuted} />
+                <Text style={[styles.emptyText, { color: theme.textMuted }]}>
+                  Belum ada data penilaian
+                </Text>
+              </View>
+            ) : (
+              grades.map((grade: any) => {
+                const pct = Math.round((grade.score / grade.maxScore) * 100);
+                const color = pct >= 80 ? Colors.green : pct >= 60 ? Colors.amber : Colors.rose;
+                return (
+                  <View key={grade.id} style={[styles.gradeCard, { backgroundColor: theme.card }]}>
+                    <View style={styles.gradeHeader}>
+                      <View style={styles.gradeAvatar}>
+                        <Text style={styles.gradeAvatarText}>
+                          {(grade.studentName || '?').charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                      <View style={styles.gradeInfo}>
+                        <Text style={[styles.gradeName, { color: theme.text }]} numberOfLines={1}>
+                          {grade.studentName}
+                        </Text>
+                        <Text style={[styles.gradeQuiz, { color: theme.textMuted }]} numberOfLines={1}>
+                          {grade.quizTitle}
+                        </Text>
+                        <Text style={[styles.gradeDate, { color: theme.textMuted }]}>
+                          {grade.completedAt}
+                        </Text>
+                      </View>
+                      <View style={[styles.gradeBadge, { backgroundColor: color + '20' }]}>
+                        <Text style={[styles.gradeBadgeText, { color }]}>
+                          {grade.score}/{grade.maxScore}
+                        </Text>
+                        <Text style={[styles.gradePct, { color }]}>{pct}%</Text>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })
+            )}
+          </View>
+          <View style={styles.bottomPad} />
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -435,4 +499,31 @@ const styles = StyleSheet.create({
   moreBtn: { padding: 4 },
 
   bottomPad: { height: 20 },
+
+  // Tab Pills
+  tabPills: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+  tabPill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
+  tabPillActive: { backgroundColor: Colors.white },
+  tabPillInactive: { backgroundColor: 'rgba(255,255,255,0.15)' },
+  tabPillText: { fontSize: 13, fontWeight: '700' },
+
+  // Section title
+  sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: 12, paddingHorizontal: 20, paddingTop: 16 },
+
+  // Grade card
+  gradeCard: { marginHorizontal: 20, marginBottom: 10, borderRadius: 14, padding: 14, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
+  gradeHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  gradeAvatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
+  gradeAvatarText: { fontSize: 16, fontWeight: '700', color: Colors.white },
+  gradeInfo: { flex: 1 },
+  gradeName: { fontSize: 14, fontWeight: '600', marginBottom: 2 },
+  gradeQuiz: { fontSize: 12, marginBottom: 2 },
+  gradeDate: { fontSize: 11 },
+  gradeBadge: { alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
+  gradeBadgeText: { fontSize: 13, fontWeight: '700' },
+  gradePct: { fontSize: 11, fontWeight: '600' },
+
+  // Empty state
+  emptyState: { alignItems: 'center', paddingVertical: 40, gap: 10, paddingHorizontal: 20 },
+  emptyText: { fontSize: 14, textAlign: 'center' },
 });
