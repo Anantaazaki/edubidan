@@ -175,6 +175,7 @@ export default function MahasiswaScreen() {
           </View>
         )}
       </LinearGradient>
+      {activeTab === 'mahasiswa' && (
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* ── Filter Tabs ── */}
         <View style={[styles.filterSection, { backgroundColor: theme.surface }]}>
@@ -307,6 +308,7 @@ export default function MahasiswaScreen() {
 
         <View style={styles.bottomPad} />
       </ScrollView>
+      )}
       {activeTab === 'penilaian' && (
         <ScrollView showsVerticalScrollIndicator={false}>
           <View style={[styles.section, { backgroundColor: theme.background }]}>
