@@ -58,29 +58,37 @@ export default function LecturerProfileScreen() {
   const loadProfile = async () => {
     try {
       setLoading(true);
-      // In real app, this would fetch from database
-      const mockProfile: LecturerProfile = {
-        id: 'lecturer1',
-        name: 'Dr. Siti Aisyah, SST., M.Kes',
-        email: 'dosen@edubidan.com',
-        nidn: '0410087801',
-        specialization: 'Kebidanan Komunitas & Asuhan Kebidanan',
-        phone: '+62 812-3456-7890',
-        address: 'Jl. HS. Ronggowaluyo, Telukjambe Timur, Karawang, Jawa Barat',
+      
+      // Load user data dari Firebase Auth + AsyncStorage
+      const { UserDatabase } = await import('../../src/utils/userDatabase');
+      const currentUser = await UserDatabase.getCurrentUser();
+      
+      // Load stats real dari Firebase
+      const { LecturerDatabase } = await import('../../src/utils/lecturerDatabase');
+      const stats = await LecturerDatabase.getStatistics();
+      
+      const lecturerProfile: LecturerProfile = {
+        id: currentUser?.id || 'lecturer1',
+        name: currentUser?.name || 'Dr. Siti Aisyah, SST., M.Kes',
+        email: currentUser?.email || 'dosen@edubidan.com',
+        nidn: currentUser?.nim || '0410087801',
+        specialization: currentUser?.prodi || 'Kebidanan Komunitas & Asuhan Kebidanan',
+        phone: currentUser?.phone || '-',
+        address: currentUser?.alamat || '-',
         joinDate: '15 Agustus 2020',
         avatar: null,
-        totalMaterials: 12,
-        totalVideos: 48,
-        totalStudents: 156,
-        totalQuizzes: 24,
+        totalMaterials: stats.totalMaterials,
+        totalVideos: stats.totalVideos,
+        totalStudents: stats.totalStudents,
+        totalQuizzes: stats.totalQuizzes,
       };
       
-      setProfile(mockProfile);
-      setEditName(mockProfile.name);
-      setEditEmail(mockProfile.email);
-      setEditPhone(mockProfile.phone);
-      setEditAddress(mockProfile.address);
-      setEditSpecialization(mockProfile.specialization);
+      setProfile(lecturerProfile);
+      setEditName(lecturerProfile.name);
+      setEditEmail(lecturerProfile.email);
+      setEditPhone(lecturerProfile.phone);
+      setEditAddress(lecturerProfile.address);
+      setEditSpecialization(lecturerProfile.specialization);
     } catch (error) {
       console.error('Error loading profile:', error);
       Alert.alert('Error', 'Gagal memuat profil');
@@ -228,41 +236,6 @@ export default function LecturerProfileScreen() {
       </LinearGradient>
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Statistics */}
-        <View style={[styles.statsSection, { backgroundColor: theme.background }]}>
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>Statistik Aktivitas</Text>
-          <View style={styles.statsGrid}>
-            <View style={[styles.statCard, { backgroundColor: theme.card }]}>
-              <View style={[styles.statIconWrap, { backgroundColor: Colors.primaryLight }]}>
-                <Ionicons name="book-outline" size={18} color={Colors.primary} />
-              </View>
-              <Text style={[styles.statValue, { color: theme.text }]}>{profile.totalMaterials}</Text>
-              <Text style={[styles.statLabel, { color: theme.textMuted }]}>Materi</Text>
-            </View>
-            <View style={[styles.statCard, { backgroundColor: theme.card }]}>
-              <View style={[styles.statIconWrap, { backgroundColor: Colors.blueLight }]}>
-                <Ionicons name="play-circle-outline" size={18} color={Colors.blue} />
-              </View>
-              <Text style={[styles.statValue, { color: theme.text }]}>{profile.totalVideos}</Text>
-              <Text style={[styles.statLabel, { color: theme.textMuted }]}>Video</Text>
-            </View>
-            <View style={[styles.statCard, { backgroundColor: theme.card }]}>
-              <View style={[styles.statIconWrap, { backgroundColor: Colors.amberLight }]}>
-                <Ionicons name="people-outline" size={18} color={Colors.amber} />
-              </View>
-              <Text style={[styles.statValue, { color: theme.text }]}>{profile.totalStudents}</Text>
-              <Text style={[styles.statLabel, { color: theme.textMuted }]}>Mahasiswa</Text>
-            </View>
-            <View style={[styles.statCard, { backgroundColor: theme.card }]}>
-              <View style={[styles.statIconWrap, { backgroundColor: Colors.roseLight }]}>
-                <Ionicons name="help-circle-outline" size={18} color={Colors.rose} />
-              </View>
-              <Text style={[styles.statValue, { color: theme.text }]}>{profile.totalQuizzes}</Text>
-              <Text style={[styles.statLabel, { color: theme.textMuted }]}>Quiz</Text>
-            </View>
-          </View>
-        </View>
-
         {/* Profile Details */}
         <View style={[styles.section, { backgroundColor: theme.background }]}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>Informasi Pribadi</Text>
