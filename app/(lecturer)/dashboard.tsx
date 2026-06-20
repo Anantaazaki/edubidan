@@ -289,7 +289,7 @@ export default function LecturerDashboardScreen() {
               {/* Notification Button */}
               <TouchableOpacity
                 style={styles.notificationBtn}
-                onPress={() => setShowNotifications(true)}
+                onPress={() => router.push('/(lecturer)/notifications')}
               >
                 <Ionicons name="notifications" size={20} color={Colors.white} />
                 {unreadCount > 0 && (
@@ -368,62 +368,11 @@ export default function LecturerDashboardScreen() {
             </View>
           </View>
         </View>
-        {/* ── Quick Actions for Lecturer ── */}
-        <View style={[styles.section, { backgroundColor: theme.background }]}>
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>Aksi Cepat</Text>
-          <View style={styles.quickActions}>
-            <TouchableOpacity
-              style={[styles.quickAction, { backgroundColor: Colors.primaryLight }]}
-              onPress={() => handleQuickAction('materials')}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="book" size={28} color={Colors.primary} />
-              <Text style={[styles.quickActionText, { color: Colors.primary }]}>Materi Saya</Text>
-              <Text style={[styles.quickActionSubtext, { color: Colors.primary }]}>
-                {dashboardStats.totalMaterials} materi
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.quickAction, { backgroundColor: Colors.blueLight }]}
-              onPress={() => handleQuickAction('students')}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="people" size={28} color={Colors.blue} />
-              <Text style={[styles.quickActionText, { color: Colors.blue }]}>Mahasiswa</Text>
-              <Text style={[styles.quickActionSubtext, { color: Colors.blue }]}>
-                {dashboardStats.totalStudents} aktif
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.quickAction, { backgroundColor: Colors.amberLight }]}
-              onPress={() => handleQuickAction('quiz')}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="help-circle" size={28} color={Colors.amber} />
-              <Text style={[styles.quickActionText, { color: Colors.amber }]}>Quiz</Text>
-              <Text style={[styles.quickActionSubtext, { color: Colors.amber }]}>
-                {dashboardStats.totalQuizzes} quiz
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.quickAction, { backgroundColor: Colors.roseLight }]}
-              onPress={() => handleQuickAction('grading')}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="star" size={28} color={Colors.rose} />
-              <Text style={[styles.quickActionText, { color: Colors.rose }]}>Penilaian</Text>
-              <Text style={[styles.quickActionSubtext, { color: Colors.rose }]}>
-                {dashboardStats.pendingGrades} pending
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
         {/* ── Manajemen Materi ── */}
         <View style={[styles.section, { backgroundColor: theme.background }]}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Manajemen Materi</Text>
-            <TouchableOpacity onPress={() => router.push('/(lecturer)/materi-saya')}>
+            <TouchableOpacity onPress={() => router.push('/(lecturer)/kelola-pembelajaran')}>
               <Text style={styles.seeAll}>Kelola</Text>
             </TouchableOpacity>
           </View>
@@ -479,91 +428,6 @@ export default function LecturerDashboardScreen() {
 
         <View style={styles.bottomPad} />
       </ScrollView>
-      {/* Notification Modal */}
-      <Modal
-        visible={showNotifications}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowNotifications(false)}
-      >
-        <View style={[styles.modalContainer, { backgroundColor: theme.background }]}>
-          <View style={[styles.modalHeader, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
-            <View style={styles.modalHeaderLeft}>
-              <Text style={[styles.modalTitle, { color: theme.text }]}>Notifikasi</Text>
-              {unreadCount > 0 && (
-                <View style={[styles.unreadBadge, { backgroundColor: Colors.primary }]}>
-                  <Text style={styles.unreadBadgeText}>{unreadCount}</Text>
-                </View>
-              )}
-            </View>
-            <View style={styles.modalHeaderRight}>
-              {unreadCount > 0 && (
-                <TouchableOpacity
-                  style={styles.markAllBtn}
-                  onPress={markAllAsRead}
-                >
-                  <Text style={[styles.markAllText, { color: Colors.primary }]}>
-                    Tandai Semua
-                  </Text>
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity
-                style={styles.closeBtn}
-                onPress={() => setShowNotifications(false)}
-              >
-                <Ionicons name="close" size={24} color={theme.textMuted} />
-              </TouchableOpacity>
-            </View>
-          </View>
-          
-          <FlatList
-            data={notifications}
-            keyExtractor={(item) => item.id}
-            showsVerticalScrollIndicator={false}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={[
-                  styles.notificationItem,
-                  { backgroundColor: theme.background },
-                  !item.isRead && { backgroundColor: theme.surface }
-                ]}
-                onPress={() => !item.isRead && markAsRead(item.id)}
-              >
-                <View style={[styles.notificationIconContainer, { backgroundColor: getNotificationColor(item.type) + '20' }]}>
-                  <Ionicons
-                    name={getNotificationIcon(item.type)}
-                    size={20}
-                    color={getNotificationColor(item.type)}
-                  />
-                </View>
-                <View style={styles.notificationContent}>
-                  <Text style={[styles.notificationTitle, { color: theme.text }]} numberOfLines={1}>
-                    {item.title}
-                  </Text>
-                  <Text style={[styles.notificationMessage, { color: theme.textMuted }]} numberOfLines={2}>
-                    {item.message}
-                  </Text>
-                  <Text style={[styles.notificationTime, { color: theme.textMuted }]}>
-                    {formatNotificationTime(item.timestamp)}
-                  </Text>
-                </View>
-                {!item.isRead && (
-                  <View style={[styles.unreadIndicator, { backgroundColor: Colors.primary }]} />
-                )}
-              </TouchableOpacity>
-            )}
-            contentContainerStyle={styles.notificationsList}
-            ListEmptyComponent={
-              <View style={styles.emptyNotifications}>
-                <Ionicons name="notifications-outline" size={48} color={theme.textMuted} />
-                <Text style={[styles.emptyNotificationsText, { color: theme.textMuted }]}>
-                  Tidak ada notifikasi
-                </Text>
-              </View>
-            }
-          />
-        </View>
-      </Modal>
     </View>
   );
 }
