@@ -109,31 +109,9 @@ export class LecturerDatabase {
 
   // ── Initialize Database ──────────────────────────────────────────────────
   static async initializeDatabase(): Promise<void> {
-    try {
-      // Cek apakah sudah ada data
-      const snap = await getDocs(collection(db, MATERIALS_COL));
-      if (!snap.empty) return;
-
-      // Seed sample materials
-      const sampleMaterials = [
-        { title: 'Asuhan Kehamilan (ANC)', category: 'Kehamilan',
-          description: 'Materi pemeriksaan antenatal care', content: '',
-          status: 'published', createdBy: 'lecturer1', totalLessons: 15,
-          estimatedDuration: '3 jam 45 menit', createdAt: serverTimestamp(), updatedAt: serverTimestamp() },
-        { title: 'Asuhan Persalinan Normal', category: 'Persalinan',
-          description: 'Materi persalinan normal sesuai APN', content: '',
-          status: 'published', createdBy: 'lecturer1', totalLessons: 18,
-          estimatedDuration: '4 jam 30 menit', createdAt: serverTimestamp(), updatedAt: serverTimestamp() },
-      ];
-
-      for (const m of sampleMaterials) {
-        await addDoc(collection(db, MATERIALS_COL), m);
-      }
-
-      console.log('Firestore database initialized');
-    } catch (error) {
-      console.error('Error initializing database:', error);
-    }
+    // Tidak perlu seed data - dosen akan input data sendiri
+    // Collections akan dibuat otomatis saat dosen pertama kali tambah data
+    return;
   }
 
   // ── Materials CRUD ──────────────────────────────────────────────────────
