@@ -38,7 +38,7 @@ export default function KelolaPembelajaranScreen() {
   const [formTimeLimit, setFormTimeLimit] = useState('30');
 
   const CATEGORIES = ['Kehamilan', 'Persalinan', 'Nifas', 'Neonatus', 'Laktasi', 'KB'];
-  const lecturerId = auth.currentUser?.uid || 'lecturer1';
+  const [saving, setSaving] = useState(false);
 
   useFocusEffect(useCallback(() => { loadAll(); }, []));
 
@@ -118,7 +118,7 @@ export default function KelolaPembelajaranScreen() {
     if (!formTitle.trim()) { Alert.alert('Error', 'Judul tidak boleh kosong'); return; }
     if (!formDesc.trim()) { Alert.alert('Error', 'Deskripsi tidak boleh kosong'); return; }
 
-    setLoading(true);
+    setSaving(true);
     try {
       let result: { success: boolean; message: string };
 
@@ -132,7 +132,7 @@ export default function KelolaPembelajaranScreen() {
           ? await LecturerDatabase.updateMaterial(editingItem.id, data)
           : await LecturerDatabase.createMaterial(data).then(r => ({ success: r.success, message: r.message }));
       } else if (activeTab === 'video') {
-        if (!formUrl.trim()) { Alert.alert('Error', 'URL video tidak boleh kosong'); setLoading(false); return; }
+        if (!formUrl.trim()) { Alert.alert('Error', 'URL video tidak boleh kosong'); setSaving(false); return; }
         const data = {
           title: formTitle.trim(), description: formDesc.trim(),
           materialId: '', url: formUrl.trim(), duration: formDuration || '0:00',
@@ -156,7 +156,6 @@ export default function KelolaPembelajaranScreen() {
         Alert.alert('Sukses ✅', `${activeTab === 'materi' ? 'Materi' : activeTab === 'video' ? 'Video' : 'Quiz'} berhasil ${editingItem ? 'diperbarui' : 'ditambahkan'}`);
         setShowModal(false);
 
-        // Update state lokal LANGSUNG tanpa fetch Firestore
         const now = Date.now();
         if (activeTab === 'materi') {
           if (editingItem) {
@@ -183,7 +182,6 @@ export default function KelolaPembelajaranScreen() {
             setQuizzes(prev => [(result as any).quiz, ...prev]);
           }
         }
-
         resetForm();
       } else {
         Alert.alert('Error', result.message);
@@ -191,7 +189,7 @@ export default function KelolaPembelajaranScreen() {
     } catch (e) {
       Alert.alert('Error', 'Gagal menyimpan data');
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
@@ -438,9 +436,9 @@ export default function KelolaPembelajaranScreen() {
             <Text style={[styles.modalTitle, { color: theme.text }]}>
               {editingItem ? 'Edit' : 'Tambah'} {activeTab === 'materi' ? 'Materi' : activeTab === 'video' ? 'Video' : 'Quiz'}
             </Text>
-            <TouchableOpacity onPress={handleSave} disabled={loading}>
-              <Text style={[styles.modalSave, { color: loading ? theme.textMuted : Colors.primary }]}>
-                {loading ? 'Menyimpan...' : 'Simpan'}
+            <TouchableOpacity onPress={handleSave} disabled={saving}>
+              <Text style={[styles.modalSave, { color: saving ? theme.textMuted : Colors.primary }]}>
+                {saving ? 'Menyimpan...' : 'Simpan'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -611,3 +609,4 @@ const styles = StyleSheet.create({
   infoBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, padding: 14, borderRadius: 12 },
   infoBoxText: { flex: 1, fontSize: 13, lineHeight: 18 },
 });
+
