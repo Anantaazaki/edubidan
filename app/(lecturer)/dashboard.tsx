@@ -419,61 +419,10 @@ export default function LecturerDashboardScreen() {
           </View>
         </View>
 
-        {/* ── Recent Activity for Lecturer ── */}
+        {/* ── Manajemen Materi ── */}
         <View style={[styles.section, { backgroundColor: theme.background }]}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Aktivitas Terbaru</Text>
-            <TouchableOpacity>
-              <Text style={styles.seeAll}>Lihat Semua</Text>
-            </TouchableOpacity>
-          </View>
-          
-          <TouchableOpacity 
-            style={[styles.activityCard, { backgroundColor: theme.card }]}
-            onPress={() => router.push('/(lecturer)/penilaian')}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.activityIcon, { backgroundColor: Colors.primaryLight }]}>
-              <Ionicons name="document-text" size={20} color={Colors.primary} />
-            </View>
-            <View style={styles.activityContent}>
-              <Text style={[styles.activityTitle, { color: theme.text }]}>
-                5 Tugas Baru Dikumpulkan
-              </Text>
-              <Text style={[styles.activitySubtitle, { color: theme.textMuted }]}>
-                Asuhan Kehamilan (ANC) • 1 jam yang lalu
-              </Text>
-            </View>
-            <View style={[styles.activityBadge, { backgroundColor: Colors.primaryLight }]}>
-              <Text style={[styles.activityBadgeText, { color: Colors.primary }]}>Baru</Text>
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={[styles.activityCard, { backgroundColor: theme.card }]}
-            onPress={() => router.push('/(lecturer)/quiz')}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.activityIcon, { backgroundColor: Colors.amberLight }]}>
-              <Ionicons name="help-circle" size={20} color={Colors.amber} />
-            </View>
-            <View style={styles.activityContent}>
-              <Text style={[styles.activityTitle, { color: theme.text }]}>
-                Quiz Persalinan Selesai
-              </Text>
-              <Text style={[styles.activitySubtitle, { color: theme.textMuted }]}>
-                12 mahasiswa • 2 jam yang lalu
-              </Text>
-            </View>
-            <View style={[styles.activityBadge, { backgroundColor: Colors.amberLight }]}>
-              <Text style={[styles.activityBadgeText, { color: Colors.amber }]}>Review</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-        {/* ── Module Management Overview ── */}
-        <View style={[styles.section, { backgroundColor: theme.background }]}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Manajemen Modul</Text>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>Manajemen Materi</Text>
             <TouchableOpacity onPress={() => router.push('/(lecturer)/materi-saya')}>
               <Text style={styles.seeAll}>Kelola</Text>
             </TouchableOpacity>

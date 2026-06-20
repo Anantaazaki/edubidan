@@ -262,67 +262,32 @@ export default function MahasiswaScreen() {
             <TouchableOpacity
               key={student.id}
               style={[styles.studentCard, { backgroundColor: theme.card }]}
-              onPress={() => router.push(`/(lecturer)/student-detail/${student.id}`)}
+              onPress={() => router.push(`/(lecturer)/student-detail?studentId=${student.id}`)}
+              activeOpacity={0.8}
             >
-              <View style={styles.studentCardLeft}>
-                <View style={styles.studentAvatar}>
-                  <Text style={styles.studentAvatarText}>
-                    {student.name.charAt(0).toUpperCase()}
+              <View style={styles.studentAvatar}>
+                <Text style={styles.studentAvatarText}>
+                  {student.name.charAt(0).toUpperCase()}
+                </Text>
+              </View>
+              <View style={styles.studentInfo}>
+                <Text style={[styles.studentName, { color: theme.text }]} numberOfLines={1}>
+                  {student.name}
+                </Text>
+                <Text style={[styles.studentNim, { color: theme.textMuted }]}>
+                  NIM: {student.nim}
+                </Text>
+                <Text style={[styles.studentNim, { color: theme.textMuted }]} numberOfLines={1}>
+                  {student.email}
+                </Text>
+                <View style={styles.studentMeta}>
+                  <Ionicons name="help-circle-outline" size={12} color={Colors.primary} />
+                  <Text style={[styles.studentMetaText, { color: Colors.primary }]}>
+                    {student.completedModules || 0} quiz dikerjakan
                   </Text>
-                  <View style={[styles.statusIndicator, { backgroundColor: getStatusColor(student.status) }]} />
-                </View>
-                <View style={styles.studentInfo}>
-                  <View style={styles.studentHeader}>
-                    <Text style={[styles.studentName, { color: theme.text }]} numberOfLines={1}>
-                      {student.name}
-                    </Text>
-                    <View style={[styles.progressBadge, { backgroundColor: getProgressColor(student.progress) + '20' }]}>
-                      <Text style={[styles.progressText, { color: getProgressColor(student.progress) }]}>
-                        {student.progress}%
-                      </Text>
-                    </View>
-                  </View>
-                  <Text style={[styles.studentNim, { color: theme.textMuted }]}>
-                    {student.nim} • {student.email}
-                  </Text>
-                  <View style={styles.studentMeta}>
-                    <View style={styles.studentMetaItem}>
-                      <Ionicons name="book-outline" size={12} color={theme.textMuted} />
-                      <Text style={[styles.studentMetaText, { color: theme.textMuted }]}>
-                        {student.completedModules}/{student.totalModules} modul
-                      </Text>
-                    </View>
-                    <View style={styles.studentMetaItem}>
-                      <Ionicons name="time-outline" size={12} color={theme.textMuted} />
-                      <Text style={[styles.studentMetaText, { color: theme.textMuted }]}>
-                        {student.lastActive}
-                      </Text>
-                    </View>
-                    <View style={styles.studentMetaItem}>
-                      <Ionicons name="calendar-outline" size={12} color={theme.textMuted} />
-                      <Text style={[styles.studentMetaText, { color: theme.textMuted }]}>
-                        Bergabung {student.joinDate}
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={styles.progressContainer}>
-                    <View style={[styles.progressBg, { backgroundColor: theme.border }]}>
-                      <View
-                        style={[
-                          styles.progressFill,
-                          { 
-                            width: `${student.progress}%`, 
-                            backgroundColor: getProgressColor(student.progress) 
-                          }
-                        ]}
-                      />
-                    </View>
-                  </View>
                 </View>
               </View>
-              <TouchableOpacity style={styles.moreBtn}>
-                <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
-              </TouchableOpacity>
+              <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
             </TouchableOpacity>
           ))}
         </View>
