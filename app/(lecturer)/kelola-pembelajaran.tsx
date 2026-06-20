@@ -156,7 +156,20 @@ export default function KelolaPembelajaranScreen() {
         Alert.alert('Sukses ✅', `${activeTab === 'materi' ? 'Materi' : activeTab === 'video' ? 'Video' : 'Quiz'} berhasil ${editingItem ? 'diperbarui' : 'ditambahkan'}`);
         setShowModal(false);
         resetForm();
-        loadAll();
+        // Update state lokal langsung tanpa fetch ulang (lebih cepat)
+        if (activeTab === 'materi') {
+          const updated = await LecturerDatabase.getAllMaterials();
+          setMaterials(updated);
+          AsyncStorage.setItem('@lecturer_content_cache', JSON.stringify({ materials: updated, videos, quizzes })).catch(() => {});
+        } else if (activeTab === 'video') {
+          const updated = await LecturerDatabase.getAllVideos();
+          setVideos(updated);
+          AsyncStorage.setItem('@lecturer_content_cache', JSON.stringify({ materials, videos: updated, quizzes })).catch(() => {});
+        } else {
+          const updated = await LecturerDatabase.getAllQuizzes();
+          setQuizzes(updated);
+          AsyncStorage.setItem('@lecturer_content_cache', JSON.stringify({ materials, videos, quizzes: updated })).catch(() => {});
+        }
       } else {
         Alert.alert('Error', result.message);
       }
@@ -186,7 +199,10 @@ export default function KelolaPembelajaranScreen() {
 
               if (result.success) {
                 Alert.alert('Sukses', 'Data berhasil dihapus');
-                loadAll();
+                // Update state lokal langsung
+                if (activeTab === 'materi') setMaterials(prev => prev.filter(m => m.id !== item.id));
+                else if (activeTab === 'video') setVideos(prev => prev.filter(v => v.id !== item.id));
+                else setQuizzes(prev => prev.filter(q => q.id !== item.id));
               }
             } catch (e) {
               Alert.alert('Error', 'Gagal menghapus data');
@@ -201,10 +217,16 @@ export default function KelolaPembelajaranScreen() {
   const handleToggleStatus = async (item: any) => {
     const newStatus = item.status === 'published' ? 'draft' : 'published';
     try {
-      if (activeTab === 'materi') await LecturerDatabase.updateMaterial(item.id, { status: newStatus });
-      else if (activeTab === 'video') await LecturerDatabase.updateVideo(item.id, { status: newStatus });
-      else await LecturerDatabase.updateQuiz(item.id, { status: newStatus as any });
-      loadAll();
+      if (activeTab === 'materi') {
+        await LecturerDatabase.updateMaterial(item.id, { status: newStatus });
+        setMaterials(prev => prev.map(m => m.id === item.id ? { ...m, status: newStatus as any } : m));
+      } else if (activeTab === 'video') {
+        await LecturerDatabase.updateVideo(item.id, { status: newStatus });
+        setVideos(prev => prev.map(v => v.id === item.id ? { ...v, status: newStatus as any } : v));
+      } else {
+        await LecturerDatabase.updateQuiz(item.id, { status: newStatus as any });
+        setQuizzes(prev => prev.map(q => q.id === item.id ? { ...q, status: newStatus as any } : q));
+      }
     } catch (e) {
       Alert.alert('Error', 'Gagal mengubah status');
     }
