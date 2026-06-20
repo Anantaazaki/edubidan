@@ -10,6 +10,7 @@ import { useTheme } from '../../src/contexts/ThemeContext';
 import { Colors } from '../../src/constants/colors';
 import { LecturerDatabase, Material, Video, Quiz } from '../../src/utils/lecturerDatabase';
 import { auth } from '../../src/config/firebase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type ActiveTab = 'materi' | 'video' | 'quiz';
 
@@ -42,8 +43,21 @@ export default function KelolaPembelajaranScreen() {
   useFocusEffect(useCallback(() => { loadAll(); }, []));
 
   const loadAll = async () => {
-    setLoading(true);
+    // Tampilkan cache dulu (instant)
     try {
+      const cached = await AsyncStorage.getItem('@lecturer_content_cache');
+      if (cached) {
+        const { materials: m, videos: v, quizzes: q } = JSON.parse(cached);
+        if (m) setMaterials(m);
+        if (v) setVideos(v);
+        if (q) setQuizzes(q);
+        setLoading(false); // Stop loading spinner karena ada cache
+      }
+    } catch (_) {}
+
+    // Update dari Firestore di background
+    try {
+      setLoading(prev => materials.length === 0 && videos.length === 0); // hanya loading jika belum ada data
       await LecturerDatabase.initializeDatabase();
       const [m, v, q] = await Promise.all([
         LecturerDatabase.getAllMaterials(),
@@ -53,6 +67,8 @@ export default function KelolaPembelajaranScreen() {
       setMaterials(m);
       setVideos(v);
       setQuizzes(q);
+      // Simpan ke cache
+      await AsyncStorage.setItem('@lecturer_content_cache', JSON.stringify({ materials: m, videos: v, quizzes: q }));
     } catch (e) {
       console.error('Error loading data:', e);
     } finally {

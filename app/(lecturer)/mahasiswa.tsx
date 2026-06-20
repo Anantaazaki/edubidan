@@ -10,6 +10,7 @@ import { useTheme } from '../../src/contexts/ThemeContext';
 import { Colors } from '../../src/constants/colors';
 import { collection, getDocs, setDoc, doc } from 'firebase/firestore';
 import { db } from '../../src/config/firebase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface StudentWithGrades {
   id: string;
@@ -31,21 +32,26 @@ export default function MahasiswaScreen() {
   useFocusEffect(useCallback(() => { loadData(); }, []));
 
   const loadData = async () => {
+    // Tampilkan cache dulu (instant)
     try {
-      setLoading(true);
+      const cached = await AsyncStorage.getItem('@lecturer_students_cache');
+      if (cached) {
+        setStudents(JSON.parse(cached));
+        setLoading(false);
+      }
+    } catch (_) {}
 
-      // Load students dan grades sekaligus
+    // Update dari Firestore di background
+    try {
       const [studentsSnap, gradesSnap] = await Promise.all([
         getDocs(collection(db, 'students')),
         getDocs(collection(db, 'grades')),
       ]);
 
       const grades = gradesSnap.docs.map(d => d.data());
-
       let studentsData: any[] = [];
 
       if (studentsSnap.empty) {
-        // Seed sample data
         const sample = [
           { id: '1', name: 'Ananta Ziaurohman Az Zaki', nim: '2210631170007', email: 'ananta@student.unsika.ac.id' },
           { id: '2', name: 'Sari Dewi Pratiwi', nim: '2210631170008', email: 'sari.dewi@student.unsika.ac.id' },
@@ -59,23 +65,19 @@ export default function MahasiswaScreen() {
         studentsData = studentsSnap.docs.map(d => ({ ...d.data(), id: d.id }));
       }
 
-      // Gabungkan student dengan data nilai mereka
       const combined: StudentWithGrades[] = studentsData.map(s => {
-        const studentGrades = grades.filter(g =>
-          g.studentName === s.name || g.studentNim === s.nim
-        );
+        const studentGrades = grades.filter(g => g.studentName === s.name || g.studentNim === s.nim);
         const quizCount = studentGrades.length;
         const avgScore = quizCount > 0
           ? Math.round(studentGrades.reduce((sum, g) => sum + ((g.score / g.maxScore) * 100), 0) / quizCount)
           : 0;
         const lastGrade = studentGrades[studentGrades.length - 1];
-        return {
-          id: s.id, name: s.name, nim: s.nim, email: s.email,
-          quizCount, avgScore, lastQuiz: lastGrade?.quizTitle || '-',
-        };
+        return { id: s.id, name: s.name, nim: s.nim, email: s.email, quizCount, avgScore, lastQuiz: lastGrade?.quizTitle || '-' };
       });
 
       setStudents(combined);
+      // Simpan ke cache
+      await AsyncStorage.setItem('@lecturer_students_cache', JSON.stringify(combined));
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
