@@ -1,54 +1,159 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  StatusBar, ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { Colors } from '../../src/constants/colors';
+import { collection, getDocs, query, where, getDoc, doc } from 'firebase/firestore';
+import { db } from '../../src/config/firebase';
 
-const SAMPLE_STUDENTS: Record<string, any> = {
-  '1': { name: 'Ananta Ziaurohman Az Zaki', nim: '2210631170007', email: 'ananta@student.unsika.ac.id', progress: 85, completedModules: 4, totalModules: 5, lastActive: '2 jam yang lalu', status: 'active', joinDate: 'Sep 2022' },
-  '2': { name: 'Sari Dewi Pratiwi', nim: '2210631170008', email: 'sari.dewi@student.unsika.ac.id', progress: 72, completedModules: 3, totalModules: 5, lastActive: '1 hari yang lalu', status: 'active', joinDate: 'Sep 2022' },
-  '3': { name: 'Maya Sari Indah', nim: '2210631170009', email: 'maya.sari@student.unsika.ac.id', progress: 45, completedModules: 2, totalModules: 5, lastActive: '3 hari yang lalu', status: 'active', joinDate: 'Sep 2022' },
-  '4': { name: 'Rina Safitri', nim: '2210631170010', email: 'rina.safitri@student.unsika.ac.id', progress: 92, completedModules: 5, totalModules: 5, lastActive: '5 jam yang lalu', status: 'active', joinDate: 'Sep 2022' },
-  '5': { name: 'Lila Permata Sari', nim: '2210631170011', email: 'lila.permata@student.unsika.ac.id', progress: 30, completedModules: 1, totalModules: 5, lastActive: '1 minggu yang lalu', status: 'inactive', joinDate: 'Sep 2022' },
-};
+interface GradeItem {
+  id: string;
+  quizTitle: string;
+  score: number;
+  maxScore: number;
+  completedAt: string;
+  status: string;
+}
+
+interface StudentInfo {
+  name: string;
+  email: string;
+  nim: string;
+  prodi?: string;
+  joinDate?: string;
+}
 
 export default function StudentDetailScreen() {
   const router = useRouter();
   const { studentId } = useLocalSearchParams<{ studentId: string }>();
   const { isDark, theme, toggleTheme } = useTheme();
 
-  const student = SAMPLE_STUDENTS[studentId || '1'] || SAMPLE_STUDENTS['1'];
+  const [loading, setLoading] = useState(true);
+  const [student, setStudent] = useState<StudentInfo | null>(null);
+  const [grades, setGrades] = useState<GradeItem[]>([]);
 
-  return (
-    <View style={[styles.root, { backgroundColor: theme.background }]}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.primaryDark} />
+  useEffect(() => { loadData(); }, [studentId]);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+
+      // Load student data dari Firestore (students collection)
+      const studentDoc = await getDoc(doc(db, 'students', studentId || '1'));
+      if (studentDoc.exists()) {
+        const data = studentDoc.data();
+        setStudent({
+          name: data.name,
+          email: data.email,
+          nim: data.nim,
+          prodi: data.prodi || 'Kebidanan',
+          joinDate: data.joinDate || '-',
+        });
+      } else {
+        // Fallback: cari di users collection
+        const usersSnap = await getDocs(query(collection(db, 'users'), where('role', '==', 'student')));
+        const found = usersSnap.docs.find(d => d.id === studentId);
+        if (found) {
+          const data = found.data();
+          setStudent({
+            name: data.name, email: data.email, nim: data.nim,
+            prodi: data.prodi || 'Kebidanan', joinDate: '-',
+          });
+        }
+      }
+
+      // Load nilai dari Firestore grades collection
+      const gradesSnap = await getDocs(
+        query(collection(db, 'grades'), where('studentNim', '==', studentDoc.data()?.nim || ''))
+      );
       
-      <LinearGradient colors={[Colors.primaryDark, Colors.primary]} style={styles.header}>
-        <View style={styles.headerTop}>
+      if (!gradesSnap.empty) {
+        setGrades(gradesSnap.docs.map(d => ({ ...d.data(), id: d.id } as GradeItem)));
+      } else {
+        // Load semua grades dan filter by student name
+        const allGrades = await getDocs(collection(db, 'grades'));
+        const studentData = studentDoc.data();
+        const filtered = allGrades.docs
+          .filter(d => d.data().studentName === studentData?.name)
+          .map(d => ({ ...d.data(), id: d.id } as GradeItem));
+        setGrades(filtered);
+      }
+    } catch (error) {
+      console.error('Error loading student detail:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const avgScore = grades.length > 0
+    ? Math.round(grades.reduce((sum, g) => sum + (g.score / g.maxScore * 100), 0) / grades.length)
+    : 0;
+
+  const getScoreColor = (score: number, max: number) => {
+    const pct = (score / max) * 100;
+    if (pct >= 80) return Colors.green;
+    if (pct >= 60) return Colors.amber;
+    return Colors.rose;
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.root, { backgroundColor: theme.background, justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
+
+  if (!student) {
+    return (
+      <View style={[styles.root, { backgroundColor: theme.background }]}>
+        <StatusBar barStyle="light-content" backgroundColor={Colors.primaryDark} />
+        <LinearGradient colors={[Colors.primaryDark, Colors.primary]} style={styles.header}>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={24} color={Colors.white} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Detail Mahasiswa</Text>
-          <TouchableOpacity style={styles.themeToggle} onPress={toggleTheme}>
+          <View style={{ width: 40 }} />
+        </LinearGradient>
+        <View style={styles.emptyState}>
+          <Ionicons name="person-outline" size={64} color={theme.textMuted} />
+          <Text style={[styles.emptyTitle, { color: theme.text }]}>Data tidak ditemukan</Text>
+          <TouchableOpacity style={[styles.backToBtn, { backgroundColor: Colors.primary }]} onPress={() => router.back()}>
+            <Text style={styles.backToBtnText}>Kembali</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.root, { backgroundColor: theme.background }]}>
+      <StatusBar barStyle="light-content" backgroundColor={Colors.primaryDark} />
+
+      {/* Header */}
+      <LinearGradient colors={[Colors.primaryDark, Colors.primary]} style={styles.header}>
+        <View style={styles.headerRow}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={24} color={Colors.white} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Detail Mahasiswa</Text>
+          <TouchableOpacity style={styles.backBtn} onPress={toggleTheme}>
             <Ionicons name={isDark ? 'sunny' : 'moon'} size={20} color={Colors.white} />
           </TouchableOpacity>
         </View>
 
+        {/* Avatar + Nama */}
         <View style={styles.profileSection}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{student.name.charAt(0)}</Text>
+            <Text style={styles.avatarText}>{student.name.charAt(0).toUpperCase()}</Text>
           </View>
           <Text style={styles.studentName}>{student.name}</Text>
           <Text style={styles.studentNim}>NIM: {student.nim}</Text>
-          <View style={[styles.statusBadge, { backgroundColor: student.status === 'active' ? Colors.greenLight : Colors.roseLight }]}>
-            <Text style={[styles.statusText, { color: student.status === 'active' ? Colors.green : Colors.rose }]}>
-              {student.status === 'active' ? 'Aktif' : 'Tidak Aktif'}
-            </Text>
-          </View>
         </View>
       </LinearGradient>
 
@@ -56,31 +161,35 @@ export default function StudentDetailScreen() {
         {/* Stats */}
         <View style={[styles.statsRow, { backgroundColor: theme.card }]}>
           <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: Colors.primary }]}>{student.progress}%</Text>
-            <Text style={[styles.statLabel, { color: theme.textMuted }]}>Progress</Text>
+            <Text style={[styles.statValue, { color: Colors.primary }]}>{grades.length}</Text>
+            <Text style={[styles.statLabel, { color: theme.textMuted }]}>Quiz Dikerjakan</Text>
           </View>
-          <View style={styles.statDivider} />
+          <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
           <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: Colors.blue }]}>{student.completedModules}</Text>
-            <Text style={[styles.statLabel, { color: theme.textMuted }]}>Materi Selesai</Text>
+            <Text style={[styles.statValue, { color: Colors.amber }]}>{avgScore}%</Text>
+            <Text style={[styles.statLabel, { color: theme.textMuted }]}>Nilai Rata-rata</Text>
           </View>
-          <View style={styles.statDivider} />
+          <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
           <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: Colors.amber }]}>{student.totalModules}</Text>
-            <Text style={[styles.statLabel, { color: theme.textMuted }]}>Total Materi</Text>
+            <Text style={[styles.statValue, { color: Colors.green }]}>
+              {grades.filter(g => (g.score / g.maxScore) >= 0.6).length}
+            </Text>
+            <Text style={[styles.statLabel, { color: theme.textMuted }]}>Lulus</Text>
           </View>
         </View>
 
-        {/* Info */}
-        <View style={[styles.infoSection, { backgroundColor: theme.card }]}>
+        {/* Info Mahasiswa */}
+        <View style={[styles.infoCard, { backgroundColor: theme.card }]}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>Informasi Mahasiswa</Text>
           {[
             { icon: 'mail-outline', label: 'Email', value: student.email },
-            { icon: 'time-outline', label: 'Terakhir Aktif', value: student.lastActive },
-            { icon: 'calendar-outline', label: 'Bergabung', value: student.joinDate },
+            { icon: 'school-outline', label: 'Program Studi', value: student.prodi || 'Kebidanan' },
+            { icon: 'calendar-outline', label: 'Bergabung', value: student.joinDate || '-' },
           ].map((item, i) => (
             <View key={i} style={[styles.infoRow, { borderBottomColor: theme.border }]}>
-              <Ionicons name={item.icon as any} size={18} color={Colors.primary} />
+              <View style={[styles.infoIcon, { backgroundColor: Colors.primaryLight }]}>
+                <Ionicons name={item.icon as any} size={16} color={Colors.primary} />
+              </View>
               <View style={styles.infoContent}>
                 <Text style={[styles.infoLabel, { color: theme.textMuted }]}>{item.label}</Text>
                 <Text style={[styles.infoValue, { color: theme.text }]}>{item.value}</Text>
@@ -89,15 +198,38 @@ export default function StudentDetailScreen() {
           ))}
         </View>
 
-        {/* Progress Bar */}
-        <View style={[styles.progressSection, { backgroundColor: theme.card }]}>
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>Progress Pembelajaran</Text>
-          <View style={[styles.progressBar, { backgroundColor: theme.border }]}>
-            <View style={[styles.progressFill, { width: `${student.progress}%`, backgroundColor: Colors.primary }]} />
-          </View>
-          <Text style={[styles.progressText, { color: theme.textMuted }]}>
-            {student.completedModules} dari {student.totalModules} materi selesai ({student.progress}%)
+        {/* Riwayat Quiz */}
+        <View style={[styles.infoCard, { backgroundColor: theme.card }]}>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>
+            Riwayat Quiz ({grades.length})
           </Text>
+
+          {grades.length === 0 ? (
+            <View style={styles.emptyGrades}>
+              <Ionicons name="help-circle-outline" size={40} color={theme.textMuted} />
+              <Text style={[styles.emptyGradesText, { color: theme.textMuted }]}>
+                Belum ada quiz yang dikerjakan
+              </Text>
+            </View>
+          ) : (
+            grades.map((grade, i) => (
+              <View key={grade.id} style={[styles.gradeItem, { borderBottomColor: theme.border }]}>
+                <View style={styles.gradeLeft}>
+                  <Text style={[styles.gradeTitle, { color: theme.text }]} numberOfLines={2}>
+                    {grade.quizTitle}
+                  </Text>
+                  <Text style={[styles.gradeDate, { color: theme.textMuted }]}>
+                    {grade.completedAt}
+                  </Text>
+                </View>
+                <View style={[styles.scoreBadge, { backgroundColor: getScoreColor(grade.score, grade.maxScore) + '20' }]}>
+                  <Text style={[styles.scoreText, { color: getScoreColor(grade.score, grade.maxScore) }]}>
+                    {grade.score}/{grade.maxScore}
+                  </Text>
+                </View>
+              </View>
+            ))
+          )}
         </View>
 
         <View style={{ height: 32 }} />
@@ -109,30 +241,36 @@ export default function StudentDetailScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   header: { paddingTop: 60, paddingBottom: 24, paddingHorizontal: 20 },
-  headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
   backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 18, fontWeight: '700', color: Colors.white },
-  themeToggle: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
   profileSection: { alignItems: 'center' },
-  avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: Colors.white, marginBottom: 12 },
-  avatarText: { fontSize: 28, fontWeight: '800', color: Colors.white },
-  studentName: { fontSize: 20, fontWeight: '700', color: Colors.white, marginBottom: 4 },
-  studentNim: { fontSize: 14, color: 'rgba(255,255,255,0.8)', marginBottom: 8 },
-  statusBadge: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 },
-  statusText: { fontSize: 12, fontWeight: '700' },
-  statsRow: { flexDirection: 'row', margin: 20, borderRadius: 16, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 },
+  avatar: { width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: Colors.white, marginBottom: 10 },
+  avatarText: { fontSize: 26, fontWeight: '800', color: Colors.white },
+  studentName: { fontSize: 18, fontWeight: '700', color: Colors.white, marginBottom: 4 },
+  studentNim: { fontSize: 13, color: 'rgba(255,255,255,0.8)' },
+  statsRow: { flexDirection: 'row', margin: 16, borderRadius: 16, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 },
   statItem: { flex: 1, alignItems: 'center' },
   statValue: { fontSize: 22, fontWeight: '800', marginBottom: 4 },
   statLabel: { fontSize: 11, textAlign: 'center' },
-  statDivider: { width: 1, backgroundColor: 'rgba(0,0,0,0.1)' },
-  infoSection: { marginHorizontal: 20, marginBottom: 16, borderRadius: 16, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: 16 },
-  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1 },
+  statDivider: { width: 1 },
+  infoCard: { marginHorizontal: 16, marginBottom: 12, borderRadius: 16, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 },
+  sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: 14 },
+  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderBottomWidth: 1 },
+  infoIcon: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   infoContent: { flex: 1 },
   infoLabel: { fontSize: 11, marginBottom: 2 },
   infoValue: { fontSize: 14, fontWeight: '600' },
-  progressSection: { marginHorizontal: 20, borderRadius: 16, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 },
-  progressBar: { height: 8, borderRadius: 4, overflow: 'hidden', marginBottom: 8 },
-  progressFill: { height: '100%', borderRadius: 4 },
-  progressText: { fontSize: 13 },
+  gradeItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1 },
+  gradeLeft: { flex: 1, marginRight: 12 },
+  gradeTitle: { fontSize: 13, fontWeight: '600', marginBottom: 4 },
+  gradeDate: { fontSize: 11 },
+  scoreBadge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
+  scoreText: { fontSize: 13, fontWeight: '700' },
+  emptyGrades: { alignItems: 'center', paddingVertical: 24, gap: 10 },
+  emptyGradesText: { fontSize: 13 },
+  emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  emptyTitle: { fontSize: 16, fontWeight: '600' },
+  backToBtn: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 10 },
+  backToBtnText: { color: Colors.white, fontWeight: '700' },
 });
