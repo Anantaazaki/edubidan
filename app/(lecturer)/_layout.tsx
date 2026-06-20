@@ -110,10 +110,16 @@ export default function LecturerTabsLayout() {
       <Tabs.Screen
         name="penilaian"
         options={{
-          title: 'Penilaian',
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profil',
           tabBarIcon: ({ focused, color, size }) => (
             <Ionicons
-              name={focused ? 'star' : 'star-outline'}
+              name={focused ? 'person' : 'person-outline'}
               size={size}
               color={color}
             />
@@ -121,48 +127,15 @@ export default function LecturerTabsLayout() {
         }}
       />
       
-      {/* Hidden pages - akses via navigasi */}
+      {/* Hidden pages */}
       <Tabs.Screen name="materi-saya" options={{ href: null }} />
       <Tabs.Screen name="video-pembelajaran" options={{ href: null }} />
       <Tabs.Screen name="quiz" options={{ href: null }} />
-      
-      {/* Hide detail/sub-pages from tab navigation */}
-      <Tabs.Screen
-        name="quiz-edit"
-        options={{
-          href: null, // This hides it from tab bar
-        }}
-      />
-      <Tabs.Screen
-        name="quiz-results"
-        options={{
-          href: null, // This hides it from tab bar
-        }}
-      />
-      <Tabs.Screen
-        name="student-detail"
-        options={{
-          href: null, // This hides it from tab bar
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          href: null, // This hides it from tab bar
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          href: null, // This hides it from tab bar
-        }}
-      />
-      <Tabs.Screen
-        name="notifications"
-        options={{
-          href: null, // This hides it from tab bar
-        }}
-      />
+      <Tabs.Screen name="quiz-edit" options={{ href: null }} />
+      <Tabs.Screen name="quiz-results" options={{ href: null }} />
+      <Tabs.Screen name="student-detail" options={{ href: null }} />
+      <Tabs.Screen name="settings" options={{ href: null }} />
+      <Tabs.Screen name="notifications" options={{ href: null }} />
     </Tabs>
   );
 }
