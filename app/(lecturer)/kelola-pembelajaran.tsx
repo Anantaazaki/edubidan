@@ -39,6 +39,7 @@ export default function KelolaPembelajaranScreen() {
 
   const CATEGORIES = ['Kehamilan', 'Persalinan', 'Nifas', 'Neonatus', 'Laktasi', 'KB'];
   const [saving, setSaving] = useState(false);
+  const lecturerId = auth.currentUser?.uid || 'lecturer1';
 
   useFocusEffect(useCallback(() => { loadAll(); }, []));
 
