@@ -36,6 +36,7 @@ export default function KelolaPembelajaranScreen() {
   const [formUrl, setFormUrl] = useState('');
   const [formDuration, setFormDuration] = useState('');
   const [formTimeLimit, setFormTimeLimit] = useState('30');
+  const [formMaterialId, setFormMaterialId] = useState('');
 
   const CATEGORIES = ['Kehamilan', 'Persalinan', 'Nifas', 'Neonatus', 'Laktasi', 'KB'];
   const [saving, setSaving] = useState(false);
@@ -106,12 +107,13 @@ export default function KelolaPembelajaranScreen() {
     setFormUrl(item.url || '');
     setFormDuration(item.duration || '');
     setFormTimeLimit(item.timeLimit?.toString() || '30');
+    setFormMaterialId(item.materialId || '');
     setShowModal(true);
   };
 
   const resetForm = () => {
     setFormTitle(''); setFormDesc(''); setFormCategory('Kehamilan');
-    setFormUrl(''); setFormDuration(''); setFormTimeLimit('30');
+    setFormUrl(''); setFormDuration(''); setFormTimeLimit('30'); setFormMaterialId('');
   };
 
   // ── Save (Create/Update) ──────────────────────────────────────────────────
@@ -136,7 +138,7 @@ export default function KelolaPembelajaranScreen() {
         if (!formUrl.trim()) { Alert.alert('Error', 'URL video tidak boleh kosong'); setSaving(false); return; }
         const data = {
           title: formTitle.trim(), description: formDesc.trim(),
-          materialId: '', url: formUrl.trim(), duration: formDuration || '0:00',
+          materialId: formMaterialId, url: formUrl.trim(), duration: formDuration || '0:00',
           views: 0, status: 'published' as const, createdBy: lecturerId,
         };
         result = editingItem
@@ -145,8 +147,8 @@ export default function KelolaPembelajaranScreen() {
       } else {
         const data = {
           title: formTitle.trim(), description: formDesc.trim(),
-          materialId: '', questions: [], timeLimit: parseInt(formTimeLimit) || 30,
-          attempts: 0, avgScore: 0, status: 'draft' as const, createdBy: lecturerId,
+          materialId: formMaterialId, questions: [], timeLimit: parseInt(formTimeLimit) || 30,
+          attempts: 0, avgScore: 0, status: 'published' as const, createdBy: lecturerId,
         };
         result = editingItem
           ? await LecturerDatabase.updateQuiz(editingItem.id, data)
@@ -282,9 +284,19 @@ export default function KelolaPembelajaranScreen() {
               🔗 {item.url}
             </Text>
           )}
+          {activeTab === 'video' && item.materialId && (
+            <Text style={[styles.itemMeta, { color: Colors.primary }]} numberOfLines={1}>
+              📚 {materials.find(m => m.id === item.materialId)?.title || item.materialId}
+            </Text>
+          )}
           {activeTab === 'quiz' && (
             <Text style={[styles.itemMeta, { color: theme.textMuted }]}>
               ⏱ {item.timeLimit} menit • {item.questions?.length || 0} soal
+            </Text>
+          )}
+          {activeTab === 'quiz' && item.materialId && (
+            <Text style={[styles.itemMeta, { color: Colors.primary }]} numberOfLines={1}>
+              📚 {materials.find(m => m.id === item.materialId)?.title || item.materialId}
             </Text>
           )}
         </View>
@@ -493,6 +505,51 @@ export default function KelolaPembelajaranScreen() {
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
+              </View>
+            )}
+
+            {/* Link ke Materi (Video & Quiz) */}
+            {(activeTab === 'video' || activeTab === 'quiz') && materials.length > 0 && (
+              <View style={styles.formGroup}>
+                <Text style={[styles.label, { color: theme.text }]}>
+                  Link ke Materi {activeTab === 'video' ? '(opsional)' : '(opsional)'}
+                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
+                  <TouchableOpacity
+                    style={[
+                      styles.categoryChip,
+                      { backgroundColor: formMaterialId === '' ? Colors.primary : theme.surface, borderColor: formMaterialId === '' ? Colors.primary : theme.border }
+                    ]}
+                    onPress={() => setFormMaterialId('')}
+                  >
+                    <Text style={[styles.categoryChipText, { color: formMaterialId === '' ? Colors.white : theme.text }]}>
+                      Tidak dilink
+                    </Text>
+                  </TouchableOpacity>
+                  {materials.map(mat => (
+                    <TouchableOpacity
+                      key={mat.id}
+                      style={[
+                        styles.categoryChip,
+                        { backgroundColor: formMaterialId === mat.id ? Colors.primary : theme.surface, borderColor: formMaterialId === mat.id ? Colors.primary : theme.border }
+                      ]}
+                      onPress={() => setFormMaterialId(mat.id)}
+                    >
+                      <Text style={[styles.categoryChipText, { color: formMaterialId === mat.id ? Colors.white : theme.text }]} numberOfLines={1}>
+                        {mat.title}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+                {formMaterialId ? (
+                  <Text style={[styles.inputHint, { color: Colors.primary }]}>
+                    ✓ Terhubung ke: {materials.find(m => m.id === formMaterialId)?.title}
+                  </Text>
+                ) : (
+                  <Text style={[styles.inputHint, { color: theme.textMuted }]}>
+                    Pilih materi agar {activeTab} muncul di halaman mahasiswa
+                  </Text>
+                )}
               </View>
             )}
 
