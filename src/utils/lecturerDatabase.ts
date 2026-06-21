@@ -124,22 +124,39 @@ export class LecturerDatabase {
     fileName: string
   ): Promise<{ success: boolean; url?: string; message: string }> {
     try {
+      console.log('Starting PDF upload:', { materialId, fileUri, fileName });
+
       // React Native XMLHttpRequest blob workaround
       const blob: Blob = await new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        xhr.onload = () => resolve(xhr.response);
-        xhr.onerror = () => reject(new Error('Failed to create blob'));
+        xhr.onload = () => {
+          console.log('Blob created, size:', xhr.response?.size);
+          resolve(xhr.response);
+        };
+        xhr.onerror = (e) => {
+          console.error('XHR error:', e);
+          reject(new Error('Failed to create blob'));
+        };
         xhr.responseType = 'blob';
         xhr.open('GET', fileUri, true);
         xhr.send(null);
       });
 
-      // Upload to Firebase Storage
-      const storageRef = ref(storage, `materials/${materialId}/pdf/${fileName}`);
-      await uploadBytes(storageRef, blob, { contentType: 'application/pdf' });
+      console.log('Uploading to Firebase Storage...');
+      // Use safe filename (remove special chars)
+      const safeFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const storagePath = `materials/${materialId}/pdf/${safeFileName}`;
+      console.log('Storage path:', storagePath);
+
+      const storageRef = ref(storage, storagePath);
+      const snapshot = await uploadBytes(storageRef, blob, {
+        contentType: 'application/pdf',
+      });
+      console.log('Upload done:', snapshot.metadata.fullPath);
 
       // Get download URL
       const url = await getDownloadURL(storageRef);
+      console.log('Download URL:', url);
 
       // Update material with PDF URL
       await updateDoc(doc(db, MATERIALS_COL, materialId), {
@@ -150,8 +167,8 @@ export class LecturerDatabase {
 
       return { success: true, url, message: 'PDF berhasil diupload' };
     } catch (error: any) {
-      console.error('Error uploading PDF:', error);
-      return { success: false, message: `Gagal upload PDF: ${error?.message || 'Unknown error'}` };
+      console.error('Error uploading PDF:', error?.code, error?.message, error);
+      return { success: false, message: `Gagal upload PDF: ${error?.code || error?.message || 'Unknown error'}` };
     }
   }
 

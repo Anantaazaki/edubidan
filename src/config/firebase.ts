@@ -35,6 +35,6 @@ export { auth };
 export const db = getFirestore(app);
 
 // Storage
-export const storage = getStorage(app);
+export const storage = getStorage(app, 'gs://edubidan-3ab02.firebasestorage.app');
 
 export default app;
