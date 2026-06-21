@@ -357,9 +357,7 @@ export default function AdminDashboardScreen() {
         <View style={[styles.section, { backgroundColor: theme.background }]}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Aktivitas Terbaru</Text>
-            <TouchableOpacity onPress={() => router.push('/(admin)/monitoring')}>
-              <Text style={styles.seeAll}>Lihat Semua</Text>
-            </TouchableOpacity>
+          </View>
           </View>
           
           {recentActivities.map((activity) => (

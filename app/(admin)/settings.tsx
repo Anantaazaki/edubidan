@@ -230,7 +230,6 @@ export default function AdminSettingsScreen() {
           <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>NAVIGASI ADMIN</Text>
           <SettingItem icon="person-outline" title="Profil Admin" onPress={() => router.push('/(admin)/profile')} color={Colors.primary} />
           <SettingItem icon="notifications-outline" title="Notifikasi" onPress={() => router.push('/(admin)/notifications')} color={Colors.blue} />
-          <SettingItem icon="list-outline" title="Audit Log" onPress={() => router.push('/(admin)/audit-log')} color={Colors.amber} />
         </View>
 
         {/* Logout */}

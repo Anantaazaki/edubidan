@@ -76,9 +76,7 @@ export default function AdminLayout() {
       
       {/* Hidden pages */}
       <Tabs.Screen name="approval" options={{ href: null }} />
-      <Tabs.Screen name="monitoring" options={{ href: null }} />
       <Tabs.Screen name="notifications" options={{ href: null }} />
-      <Tabs.Screen name="audit-log" options={{ href: null }} />
       <Tabs.Screen name="profile" options={{ href: null }} />
       <Tabs.Screen name="system-settings" options={{ href: null }} />
     </Tabs>
