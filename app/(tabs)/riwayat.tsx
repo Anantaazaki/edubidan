@@ -71,51 +71,19 @@ export default function RiwayatScreen() {
   const loadHistory = async () => {
     try {
       setLoading(true);
+      // Load dari Firestore via useHistory
       const stored = await AsyncStorage.getItem(HISTORY_KEY);
       if (stored) {
         const parsedHistory: HistoryEntry[] = JSON.parse(stored);
-        // Sort by timestamp, newest first
         parsedHistory.sort((a, b) => b.timestamp - a.timestamp);
         setHistory(parsedHistory);
       } else {
-        // Initialize with sample data
-        const sampleHistory: HistoryEntry[] = [
-          {
-            id: '1',
-            type: 'materi',
-            moduleId: '1',
-            moduleTitle: 'Asuhan Kehamilan (ANC)',
-            moduleColor: '#FF6B9D',
-            date: '2 hari yang lalu',
-            timestamp: Date.now() - 172800000, // 2 days ago
-          },
-          {
-            id: '2',
-            type: 'quiz',
-            moduleId: '1',
-            moduleTitle: 'Asuhan Kehamilan (ANC)',
-            moduleColor: '#FF6B9D',
-            date: '3 hari yang lalu',
-            timestamp: Date.now() - 259200000, // 3 days ago
-            score: 8,
-            total: 10,
-            passed: true,
-          },
-          {
-            id: '3',
-            type: 'materi',
-            moduleId: '2',
-            moduleTitle: 'Asuhan Persalinan Normal',
-            moduleColor: '#4ECDC4',
-            date: '1 minggu yang lalu',
-            timestamp: Date.now() - 604800000, // 1 week ago
-          },
-        ];
-        setHistory(sampleHistory);
-        await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(sampleHistory));
+        // Tidak ada history — tampilkan kosong, bukan sample data
+        setHistory([]);
       }
     } catch (error) {
       console.error('Error loading history:', error);
+      setHistory([]);
     } finally {
       setLoading(false);
     }

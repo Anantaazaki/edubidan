@@ -31,15 +31,6 @@ interface Notification {
 
 const NOTIFICATIONS_KEY = '@edubidan_notifications';
 
-const USER = {
-  name: 'Ananta Ziaurohman Az Zaki',
-  nim: '2210631170007',
-  prodi: 'Mahasiswa Kebidanan',
-  universitas: 'UNSIKA',
-  semester: '5',
-  joinDate: 'September 2022',
-};
-
 export default function HomeScreen() {
   const router = useRouter();
   const { isDark, theme, toggleTheme, loaded } = useTheme();
@@ -164,45 +155,34 @@ export default function HomeScreen() {
 
   const loadNotifications = async () => {
     try {
-      const stored = await AsyncStorage.getItem(NOTIFICATIONS_KEY);
-      if (stored) {
-        const parsedNotifications: Notification[] = JSON.parse(stored);
-        setNotifications(parsedNotifications);
-        setUnreadCount(parsedNotifications.filter(n => !n.isRead).length);
-      } else {
-        // Initialize with sample notifications
-        const sampleNotifications: Notification[] = [
-          {
-            id: '1',
-            title: 'Selamat Datang!',
-            message: 'Selamat datang di EduBidan. Mulai perjalanan belajar Anda sekarang!',
-            type: 'success',
-            timestamp: Date.now() - 3600000, // 1 hour ago
-            isRead: false,
-          },
-          {
-            id: '2',
-            title: 'Materi Baru Tersedia',
-            message: 'Materi "Asuhan Kehamilan (ANC)" telah diperbarui dengan video terbaru.',
-            type: 'info',
-            timestamp: Date.now() - 7200000, // 2 hours ago
-            isRead: false,
-          },
-          {
-            id: '3',
-            title: 'Reminder Belajar',
-            message: 'Jangan lupa untuk melanjutkan pembelajaran Anda hari ini!',
-            type: 'warning',
-            timestamp: Date.now() - 86400000, // 1 day ago
-            isRead: true,
-          },
-        ];
-        setNotifications(sampleNotifications);
-        setUnreadCount(sampleNotifications.filter(n => !n.isRead).length);
-        await AsyncStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(sampleNotifications));
-      }
+      // Load dari Firestore via NotificationHelper
+      const { NotificationHelper } = await import('../../src/utils/notificationHelper');
+      const notifs = await NotificationHelper.getAllNotifications();
+      const mapped: Notification[] = notifs.map(n => ({
+        id: n.id,
+        title: n.title,
+        message: n.message,
+        type: (n.type === 'achievement' ? 'success' : n.type) as any,
+        timestamp: n.timestamp,
+        isRead: n.isRead,
+      }));
+      setNotifications(mapped);
+      setUnreadCount(mapped.filter(n => !n.isRead).length);
     } catch (error) {
-      console.error('Error loading notifications:', error);
+      // Fallback ke AsyncStorage
+      try {
+        const stored = await AsyncStorage.getItem(NOTIFICATIONS_KEY);
+        if (stored) {
+          const parsedNotifications: Notification[] = JSON.parse(stored);
+          setNotifications(parsedNotifications);
+          setUnreadCount(parsedNotifications.filter(n => !n.isRead).length);
+        } else {
+          setNotifications([]);
+          setUnreadCount(0);
+        }
+      } catch (_) {
+        setNotifications([]);
+      }
     }
   };
 

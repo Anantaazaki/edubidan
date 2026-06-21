@@ -19,6 +19,8 @@ import { useTheme } from '../../src/contexts/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../../src/constants/colors';
 import { UserDatabase, User } from '../../src/utils/userDatabase';
+import { MODULES } from '../../src/constants/modules';
+import { ProgressHelper } from '../../src/utils/progressHelper';
 
 const USER_DATA_KEY = '@edubidan_user_data';
 const NOTIFICATIONS_KEY = '@edubidan_notifications';
@@ -42,23 +44,6 @@ interface Notification {
   timestamp: number;
   isRead: boolean;
 }
-
-const MODULES = [
-  { id: '1', title: 'Asuhan Kehamilan (ANC)', progress: 0.75, color: '#FF6B9D' },
-  { id: '2', title: 'Asuhan Persalinan Normal', progress: 0.3, color: '#4ECDC4' },
-  { id: '3', title: 'Asuhan Masa Nifas', progress: 0.0, color: '#8B5CF6' },
-  { id: '4', title: 'Asuhan Bayi Baru Lahir', progress: 0.0, color: '#F59E0B' },
-  { id: '5', title: 'Manajemen Laktasi', progress: 0.0, color: '#3B82F6' },
-];
-
-const USER = {
-  name: 'Ananta Ziaurohman Az Zaki',
-  nim: '2210631170007',
-  prodi: 'Mahasiswa Kebidanan',
-  universitas: 'Universitas Singaperbangsa Karawang',
-  email: 'ananta.zaki@student.unsika.ac.id',
-  angkatan: '2022',
-};
 
 interface MenuItemProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -264,6 +249,26 @@ export default function ProfilScreen() {
     (MODULES.reduce((sum, m) => sum + m.progress, 0) / MODULES.length) * 100
   );
 
+  // Load real progress dari Firebase/AsyncStorage
+  const [moduleProgress, setModuleProgress] = React.useState<{[key: string]: number}>({});
+  
+  React.useEffect(() => {
+    ProgressHelper.loadAllProgress().then(progressData => {
+      const result: {[key: string]: number} = {};
+      for (const module of MODULES) {
+        const completed = progressData[module.id] || 0;
+        const totalLessons = module.chapters.reduce((sum, chapter) => sum + chapter.lessons.length, 0);
+        result[module.id] = totalLessons > 0 ? completed / totalLessons : 0;
+      }
+      setModuleProgress(result);
+    }).catch(() => {});
+  }, []);
+
+  const realCompletedModules = MODULES.filter(m => (moduleProgress[m.id] || 0) >= 1).length;
+  const realTotalProgress = Math.round(
+    MODULES.reduce((sum, m) => sum + (moduleProgress[m.id] || 0), 0) / MODULES.length * 100
+  );
+
   const handleLogout = async () => {
     Alert.alert(
       'Keluar dari Akun',
@@ -344,17 +349,17 @@ export default function ProfilScreen() {
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{MODULES.length}</Text>
-              <Text style={styles.statLabel}>Total Modul</Text>
+              <Text style={styles.statLabel}>Total Materi</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>{completedModules}</Text>
+              <Text style={styles.statValue}>{realCompletedModules}</Text>
               <Text style={styles.statLabel}>Selesai</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>{userStats.totalUsers}</Text>
-              <Text style={styles.statLabel}>Total User</Text>
+              <Text style={styles.statValue}>{realTotalProgress}%</Text>
+              <Text style={styles.statLabel}>Progress</Text>
             </View>
           </View>
         </LinearGradient>
@@ -422,31 +427,34 @@ export default function ProfilScreen() {
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>PROGRESS BELAJAR</Text>
           <View style={styles.menuGroup}>
-            {MODULES.map((m) => (
-              <View key={m.id} style={[styles.menuItem, { backgroundColor: theme.card }]}>
-                <View style={[styles.menuIconWrap, { backgroundColor: m.color + '20' }]}>
-                  <Ionicons name="book-outline" size={20} color={m.color} />
-                </View>
-                <View style={styles.menuContent}>
-                  <Text style={[styles.menuLabel, { color: theme.text }]} numberOfLines={1}>
-                    {m.title}
-                  </Text>
-                  <View style={styles.progressRow}>
-                    <View style={[styles.progressBg, { backgroundColor: theme.border }]}>
-                      <View
-                        style={[
-                          styles.progressFill,
-                          { width: `${m.progress * 100}%`, backgroundColor: m.color },
-                        ]}
-                      />
-                    </View>
-                    <Text style={[styles.progressText, { color: theme.textMuted }]}>
-                      {Math.round(m.progress * 100)}%
+            {MODULES.map((m) => {
+              const progress = moduleProgress[m.id] || 0;
+              return (
+                <View key={m.id} style={[styles.menuItem, { backgroundColor: theme.card }]}>
+                  <View style={[styles.menuIconWrap, { backgroundColor: m.color + '20' }]}>
+                    <Ionicons name="book-outline" size={20} color={m.color} />
+                  </View>
+                  <View style={styles.menuContent}>
+                    <Text style={[styles.menuLabel, { color: theme.text }]} numberOfLines={1}>
+                      {m.title}
                     </Text>
+                    <View style={styles.progressRow}>
+                      <View style={[styles.progressBg, { backgroundColor: theme.border }]}>
+                        <View
+                          style={[
+                            styles.progressFill,
+                            { width: `${progress * 100}%`, backgroundColor: m.color },
+                          ]}
+                        />
+                      </View>
+                      <Text style={[styles.progressText, { color: theme.textMuted }]}>
+                        {Math.round(progress * 100)}%
+                      </Text>
+                    </View>
                   </View>
                 </View>
-              </View>
-            ))}
+              );
+            })}
           </View>
         </View>
 
