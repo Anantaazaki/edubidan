@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { Colors } from '../../src/constants/colors';
 import { MODULES } from '../../src/constants/modules';
@@ -51,6 +51,14 @@ export default function LecturerDashboardScreen() {
   useEffect(() => {
     initializeData();
   }, []);
+
+  // Reload materials dan stats saat kembali ke dashboard
+  useFocusEffect(
+    useCallback(() => {
+      loadMaterials();
+      loadDashboardData();
+    }, [])
+  );
 
   const initializeData = async () => {
     try {
