@@ -389,7 +389,7 @@ export default function LecturerDashboardScreen() {
                 key={material.id}
                 style={[styles.moduleGridCard, { backgroundColor: theme.card, borderLeftColor: Colors.primary }]}
                 activeOpacity={0.85}
-                onPress={() => router.push(`/(lecturer)/materi-saya?materialId=${material.id}`)}
+                onPress={() => router.push('/(lecturer)/kelola-pembelajaran')}
               >
                 <View style={styles.moduleGridHeader}>
                   <View style={[styles.moduleGridIcon, { backgroundColor: Colors.primary + '20' }]}>
@@ -672,3 +672,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+
+
