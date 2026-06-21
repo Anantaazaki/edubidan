@@ -11,6 +11,7 @@ import { Colors } from '../../src/constants/colors';
 import { LecturerDatabase, Material, Video, Quiz } from '../../src/utils/lecturerDatabase';
 import { auth } from '../../src/config/firebase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as DocumentPicker from 'expo-document-picker';
 
 type ActiveTab = 'materi' | 'video' | 'quiz';
 
@@ -37,6 +38,10 @@ export default function KelolaPembelajaranScreen() {
   const [formDuration, setFormDuration] = useState('');
   const [formTimeLimit, setFormTimeLimit] = useState('30');
   const [formMaterialId, setFormMaterialId] = useState('');
+
+  // PDF state
+  const [pdfFile, setPdfFile] = useState<{ uri: string; name: string } | null>(null);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
 
   const CATEGORIES = ['Kehamilan', 'Persalinan', 'Nifas', 'Neonatus', 'Laktasi', 'KB'];
   const [saving, setSaving] = useState(false);
@@ -114,6 +119,22 @@ export default function KelolaPembelajaranScreen() {
   const resetForm = () => {
     setFormTitle(''); setFormDesc(''); setFormCategory('Kehamilan');
     setFormUrl(''); setFormDuration(''); setFormTimeLimit('30'); setFormMaterialId('');
+    setPdfFile(null);
+  };
+
+  const pickPDF = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'application/pdf',
+        copyToCacheDirectory: true,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        setPdfFile({ uri: asset.uri, name: asset.name });
+      }
+    } catch (e) {
+      Alert.alert('Error', 'Gagal memilih file PDF');
+    }
   };
 
   // ── Save (Create/Update) ──────────────────────────────────────────────────
@@ -131,9 +152,23 @@ export default function KelolaPembelajaranScreen() {
           category: formCategory, content: '', status: 'published' as const,
           createdBy: lecturerId, totalLessons: 0, estimatedDuration: formDuration || '1 jam',
         };
-        result = editingItem
+        const saveResult = editingItem
           ? await LecturerDatabase.updateMaterial(editingItem.id, data)
-          : await LecturerDatabase.createMaterial(data).then(r => ({ success: r.success, message: r.message }));
+          : await LecturerDatabase.createMaterial(data);
+        result = { success: saveResult.success, message: saveResult.message };
+
+        // Upload PDF jika ada file yang dipilih
+        if (saveResult.success && pdfFile) {
+          const materialId = editingItem?.id || (saveResult as any).material?.id;
+          if (materialId) {
+            setUploadingPdf(true);
+            const uploadResult = await LecturerDatabase.uploadPDF(materialId, pdfFile.uri, pdfFile.name);
+            setUploadingPdf(false);
+            if (!uploadResult.success) {
+              Alert.alert('Perhatian', `Materi tersimpan tapi PDF gagal diupload: ${uploadResult.message}`);
+            }
+          }
+        }
       } else if (activeTab === 'video') {
         if (!formUrl.trim()) { Alert.alert('Error', 'URL video tidak boleh kosong'); setSaving(false); return; }
         const data = {
@@ -611,6 +646,66 @@ export default function KelolaPembelajaranScreen() {
               </View>
             )}
 
+            {/* Upload PDF Modul (Materi only) */}
+            {activeTab === 'materi' && (
+              <View style={styles.formGroup}>
+                <Text style={[styles.label, { color: theme.text }]}>Modul PDF (opsional)</Text>
+
+                {/* Existing PDF info */}
+                {editingItem?.pdfUrl && !pdfFile && (
+                  <View style={[styles.pdfExisting, { backgroundColor: Colors.primaryLight }]}>
+                    <Ionicons name="document-text" size={20} color={Colors.primary} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.pdfName, { color: Colors.primary }]} numberOfLines={1}>
+                        {editingItem.pdfName || 'modul.pdf'}
+                      </Text>
+                      <Text style={{ color: Colors.primary, fontSize: 11 }}>PDF sudah diupload</Text>
+                    </View>
+                    <TouchableOpacity onPress={pickPDF}>
+                      <Text style={{ color: Colors.primary, fontSize: 12, fontWeight: '700' }}>Ganti</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {/* Selected new PDF */}
+                {pdfFile && (
+                  <View style={[styles.pdfExisting, { backgroundColor: Colors.greenLight }]}>
+                    <Ionicons name="document-text" size={20} color={Colors.green} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.pdfName, { color: Colors.green }]} numberOfLines={1}>
+                        {pdfFile.name}
+                      </Text>
+                      <Text style={{ color: Colors.green, fontSize: 11 }}>Siap diupload</Text>
+                    </View>
+                    <TouchableOpacity onPress={() => setPdfFile(null)}>
+                      <Ionicons name="close-circle" size={20} color={Colors.rose} />
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {/* Pick PDF button */}
+                {!pdfFile && !editingItem?.pdfUrl && (
+                  <TouchableOpacity
+                    style={[styles.pdfPickBtn, { borderColor: theme.border, backgroundColor: theme.surface }]}
+                    onPress={pickPDF}
+                  >
+                    <Ionicons name="cloud-upload-outline" size={22} color={Colors.primary} />
+                    <Text style={[styles.pdfPickText, { color: Colors.primary }]}>Pilih File PDF</Text>
+                  </TouchableOpacity>
+                )}
+
+                {uploadingPdf && (
+                  <View style={styles.uploadingRow}>
+                    <ActivityIndicator size="small" color={Colors.primary} />
+                    <Text style={[styles.inputHint, { color: Colors.primary }]}>Mengupload PDF...</Text>
+                  </View>
+                )}
+                <Text style={[styles.inputHint, { color: theme.textMuted }]}>
+                  Upload modul PDF untuk mahasiswa. Maks 10MB.
+                </Text>
+              </View>
+            )}
+
             <View style={{ height: 40 }} />
           </ScrollView>
         </View>
@@ -667,5 +762,10 @@ const styles = StyleSheet.create({
   categoryChipText: { fontSize: 13, fontWeight: '600' },
   infoBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, padding: 14, borderRadius: 12 },
   infoBoxText: { flex: 1, fontSize: 13, lineHeight: 18 },
+  pdfExisting: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 10, marginBottom: 8 },
+  pdfName: { fontSize: 13, fontWeight: '600' },
+  pdfPickBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 14, borderRadius: 10, borderWidth: 1.5, borderStyle: 'dashed' },
+  pdfPickText: { fontSize: 14, fontWeight: '600' },
+  uploadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
 });
 

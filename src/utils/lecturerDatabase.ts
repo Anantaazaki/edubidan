@@ -8,7 +8,8 @@ import {
   updateDoc, deleteDoc, query, where, orderBy,
   serverTimestamp, Timestamp,
 } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { db, storage } from '../config/firebase';
 
 // Firestore Collections
 const MATERIALS_COL = 'materials';
@@ -29,6 +30,8 @@ export interface Material {
   updatedAt: number;
   totalLessons: number;
   estimatedDuration: string;
+  pdfUrl?: string;
+  pdfName?: string;
 }
 
 export interface Video {
@@ -112,6 +115,52 @@ export class LecturerDatabase {
     // Tidak perlu seed data - dosen akan input data sendiri
     // Collections akan dibuat otomatis saat dosen pertama kali tambah data
     return;
+  }
+
+  // ── PDF Upload ───────────────────────────────────────────────────────────
+  static async uploadPDF(
+    materialId: string,
+    fileUri: string,
+    fileName: string
+  ): Promise<{ success: boolean; url?: string; message: string }> {
+    try {
+      // Fetch the file as blob
+      const response = await fetch(fileUri);
+      const blob = await response.blob();
+
+      // Upload to Firebase Storage
+      const storageRef = ref(storage, `materials/${materialId}/pdf/${fileName}`);
+      await uploadBytes(storageRef, blob, { contentType: 'application/pdf' });
+
+      // Get download URL
+      const url = await getDownloadURL(storageRef);
+
+      // Update material with PDF URL
+      await updateDoc(doc(db, MATERIALS_COL, materialId), {
+        pdfUrl: url,
+        pdfName: fileName,
+        updatedAt: serverTimestamp(),
+      });
+
+      return { success: true, url, message: 'PDF berhasil diupload' };
+    } catch (error: any) {
+      console.error('Error uploading PDF:', error);
+      return { success: false, message: `Gagal upload PDF: ${error?.message || 'Unknown error'}` };
+    }
+  }
+
+  static async deletePDF(materialId: string, fileName: string)
+    : Promise<{ success: boolean; message: string }> {
+    try {
+      const storageRef = ref(storage, `materials/${materialId}/pdf/${fileName}`);
+      await deleteObject(storageRef);
+      await updateDoc(doc(db, MATERIALS_COL, materialId), {
+        pdfUrl: null, pdfName: null, updatedAt: serverTimestamp(),
+      });
+      return { success: true, message: 'PDF berhasil dihapus' };
+    } catch (error: any) {
+      return { success: false, message: `Gagal hapus PDF: ${error?.message || 'Unknown error'}` };
+    }
   }
 
   // ── Materials CRUD ──────────────────────────────────────────────────────
