@@ -1,6 +1,6 @@
 import { initializeApp, getApps } from 'firebase/app';
 import { initializeAuth, getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, initializeFirestore, CACHE_SIZE_UNLIMITED } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -25,13 +25,12 @@ try {
     persistence: getReactNativePersistence(AsyncStorage),
   });
 } catch (e) {
-  // Already initialized
   auth = getAuth(app);
 }
 
 export { auth };
 
-// Firestore database
+// Firestore — no persistence to avoid stale cache issues
 export const db = getFirestore(app);
 
 // Storage
