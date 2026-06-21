@@ -16,7 +16,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { Colors } from '../../src/constants/colors';
-import { MODULES } from '../../src/constants/modules';
 import { LecturerDatabase, Material } from '../../src/utils/lecturerDatabase';
 
 export default function MateriSayaScreen() {

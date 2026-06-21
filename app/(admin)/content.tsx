@@ -16,8 +16,20 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { Colors } from '../../src/constants/colors';
-import { AdminDatabase, ContentItem } from '../../src/utils/adminDatabase';
-import { MODULES } from '../../src/constants/modules';
+import { LecturerDatabase } from '../../src/utils/lecturerDatabase';
+
+type ContentItem = {
+  id: string;
+  title: string;
+  description: string;
+  type: 'material' | 'video' | 'quiz';
+  category?: string;
+  status: 'published' | 'draft' | 'archived' | 'processing' | 'closed';
+  createdBy: string;
+  createdAt: number;
+  updatedAt: number;
+  [key: string]: any;
+};
 
 type ContentType = 'all' | 'material' | 'video' | 'quiz';
 
@@ -29,7 +41,7 @@ export default function ContentManagementScreen() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<ContentType>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [contents, setContents] = useState<ContentItem[]>([]);
+  const [contents, setContents] = useState<any[]>([]);
   const [selectedContent, setSelectedContent] = useState<ContentItem | null>(null);
   const [showContentModal, setShowContentModal] = useState(false);
 
@@ -40,58 +52,20 @@ export default function ContentManagementScreen() {
   const loadContent = async () => {
     try {
       setLoading(true);
-      await AdminDatabase.initializeDatabase();
-      
-      // Mock content data from existing modules
-      const mockContent: ContentItem[] = MODULES.flatMap((module, moduleIndex) => [
-        // Materials
-        {
-          id: `material_${module.id}`,
-          title: `Materi ${module.title}`,
-          description: module.description,
-          type: 'material' as const,
-          category: module.category,
-          createdBy: 'lecturer1',
-          creatorName: 'Dr. Siti Aminah',
-          status: (moduleIndex % 2 === 0 ? 'published' : 'draft') as ContentItem['status'],
-          views: Math.floor(Math.random() * 500) + 50,
-          likes: Math.floor(Math.random() * 100) + 10,
-          createdAt: Date.now() - (moduleIndex * 86400000),
-          updatedAt: Date.now() - (moduleIndex * 43200000),
-        },
-        // Videos
-        ...Array(3).fill(null).map((_, videoIndex) => ({
-          id: `video_${module.id}_${videoIndex}`,
-          title: `Video ${module.title} - Bagian ${videoIndex + 1}`,
-          description: `Video pembelajaran untuk modul ${module.title}`,
-          type: 'video' as const,
-          category: module.category,
-          createdBy: 'lecturer1',
-          creatorName: 'Dr. Siti Aminah',
-          status: ((moduleIndex + videoIndex) % 3 === 0 ? 'published' : 'draft') as ContentItem['status'],
-          views: Math.floor(Math.random() * 300) + 20,
-          likes: Math.floor(Math.random() * 50) + 5,
-          createdAt: Date.now() - ((moduleIndex + videoIndex) * 21600000),
-          updatedAt: Date.now() - ((moduleIndex + videoIndex) * 10800000),
-        })),
-        // Quiz
-        {
-          id: `quiz_${module.id}`,
-          title: `Quiz ${module.title}`,
-          description: `Evaluasi pemahaman materi ${module.title}`,
-          type: 'quiz' as const,
-          category: module.category,
-          createdBy: 'lecturer1',
-          creatorName: 'Dr. Siti Aminah',
-          status: (moduleIndex % 3 === 0 ? 'published' : 'draft') as ContentItem['status'],
-          views: Math.floor(Math.random() * 200) + 10,
-          likes: Math.floor(Math.random() * 30) + 3,
-          createdAt: Date.now() - (moduleIndex * 64800000),
-          updatedAt: Date.now() - (moduleIndex * 32400000),
-        },
+      // Load real data from Firestore
+      const [materials, videos, quizzes] = await Promise.all([
+        LecturerDatabase.getAllMaterials(),
+        LecturerDatabase.getAllVideos(),
+        LecturerDatabase.getAllQuizzes(),
       ]);
-      
-      setContents(mockContent);
+
+      const allContent = [
+        ...materials.map(m => ({ ...m, type: 'material' as const })),
+        ...videos.map(v => ({ ...v, type: 'video' as const })),
+        ...quizzes.map(q => ({ ...q, type: 'quiz' as const })),
+      ];
+
+      setContents(allContent);
     } catch (error) {
       console.error('Error loading content:', error);
       Alert.alert('Error', 'Gagal memuat data konten');

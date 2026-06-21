@@ -7,298 +7,197 @@ import {
   TouchableOpacity,
   StatusBar,
   Dimensions,
-  Alert,
-  Image,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import NotificationManager from '../../src/utils/notifications';
 import { NotificationHelper } from '../../src/utils/notificationHelper';
-import { ProgressHelper } from '../../src/utils/progressHelper';
-import { VideoPlayer } from '../../src/components/VideoPlayer';
-import { MODULES } from '../../src/constants/modules';
+import { LecturerDatabase, Material, Video, Quiz } from '../../src/utils/lecturerDatabase';
 import { Colors } from '../../src/constants/colors';
 import { useTheme } from '../../src/contexts/ThemeContext';
+import { auth } from '../../src/config/firebase';
+import YoutubeIframe from 'react-native-youtube-iframe';
 
 const { width } = Dimensions.get('window');
 const VIDEO_HEIGHT = (width * 9) / 16;
-const PROGRESS_KEY = '@edubidan_progress';
 
-export default function ModuleDetailSimpleScreen() {
-  const { id } = useLocalSearchParams();
+// Extract YouTube video ID from URL or plain ID
+function extractYoutubeId(urlOrId: string): string {
+  if (!urlOrId) return '';
+  const match = urlOrId.match(
+    /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/))([A-Za-z0-9_-]{11})/
+  );
+  return match ? match[1] : urlOrId.trim();
+}
+
+// Get a color based on category
+function getCategoryColor(category: string): string {
+  const colors: Record<string, string> = {
+    Kehamilan: '#4CAF50',
+    Persalinan: '#2196F3',
+    Nifas: '#9C27B0',
+    Neonatus: '#FF9800',
+    Laktasi: '#E91E63',
+    KB: '#00BCD4',
+  };
+  return colors[category] || Colors.primary;
+}
+
+export default function ModuleDetailScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { isDark, theme, toggleTheme } = useTheme();
-  const [activeTab, setActiveTab] = useState('deskripsi');
-  const [activeVideoId, setActiveVideoId] = useState('');
-  const [completedLessons, setCompletedLessons] = useState<string[]>([]);
-  const [watchedVideos, setWatchedVideos] = useState<string[]>([]);
-  const [currentUserId] = useState('user123'); // In real app, get from auth context
 
-  // Debug: Log the ID and available modules
-  console.log('Module ID from params:', id);
-  console.log('Available modules:', MODULES.map(m => ({ id: m.id, title: m.title })));
-  
-  const module = MODULES.find((m) => m.id === String(id));
+  const [loading, setLoading] = useState(true);
+  const [material, setMaterial] = useState<Material | null>(null);
+  const [videos, setVideos] = useState<Video[]>([]);
+  const [quiz, setQuiz] = useState<Quiz | null>(null);
+  const [activeTab, setActiveTab] = useState<'deskripsi' | 'video' | 'quiz'>('deskripsi');
+  const [activeVideoIdx, setActiveVideoIdx] = useState(0);
+  const [playing, setPlaying] = useState(false);
+
+  const currentUserId = auth.currentUser?.uid || 'user_anonymous';
 
   useEffect(() => {
-    if (module && module.chapters && module.chapters.length > 0) {
-      const firstLesson = module.chapters[0]?.lessons[0];
-      if (firstLesson && !activeVideoId) {
-        setActiveVideoId(firstLesson.videoId);
-      }
-    }
-    loadProgress();
-  }, [module]);
+    loadModuleData();
+  }, [id]);
 
-  const loadProgress = async () => {
+  const loadModuleData = async () => {
+    if (!id) return;
+    setLoading(true);
     try {
-      const progress = await ProgressHelper.loadProgress(String(id));
-      if (progress) {
-        setCompletedLessons(progress.completedLessons || []);
-        setWatchedVideos(progress.watchedVideos || []);
-      }
-    } catch (error) {
-      console.error('Error loading progress:', error);
-    }
-  };
-
-  const saveProgress = async (lessonId?: string, videoId?: string) => {
-    try {
-      const progress = await ProgressHelper.saveProgress(String(id), {
-        lessonId, videoId,
-      });
-      if (lessonId && !completedLessons.includes(lessonId)) {
-        setCompletedLessons(prev => [...prev, lessonId]);
-      }
-      if (videoId && !watchedVideos.includes(videoId)) {
-        setWatchedVideos(prev => [...prev, videoId]);
-      }
-    } catch (error) {
-      console.error('Error saving progress:', error);
+      const [mat, allVideos, allQuizzes] = await Promise.all([
+        LecturerDatabase.getMaterialById(String(id)),
+        LecturerDatabase.getAllVideos(),
+        LecturerDatabase.getAllQuizzes(),
+      ]);
+      setMaterial(mat);
+      // Filter videos and quizzes linked to this material
+      const matVideos = allVideos.filter(v => v.materialId === String(id) && v.status === 'published');
+      const matQuiz = allQuizzes.find(q => q.materialId === String(id) && q.status === 'published') || null;
+      setVideos(matVideos);
+      setQuiz(matQuiz);
+    } catch (e) {
+      console.error('Error loading module:', e);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleVideoComplete = async (videoId: string) => {
+  const handleVideoComplete = async (video: Video) => {
     try {
-      console.log('Video completed:', videoId);
-      saveProgress(undefined, videoId);
-      
-      // Find current lesson and mark as completed
-      const currentLesson = module?.chapters
-        ?.flatMap(chapter => chapter.lessons)
-        ?.find(l => l.videoId === videoId);
-      if (currentLesson && module) {
-        handleLessonCompletion(currentLesson, module);
-      }
-    } catch (error) {
-      console.error('Error handling video completion:', error);
-    }
-  };
-
-  const handleLessonCompletion = async (lesson: any, module: any) => {
-    try {
-      // Save lesson completion
-      await saveProgress(lesson.id, lesson.videoId);
-      
-      // Calculate progress
-      const newCompletedLessons = [...completedLessons, lesson.id];
-      const totalLessons = getTotalLessonsCount();
-      const completedCount = newCompletedLessons.length;
-      const completionPercentage = Math.round((completedCount / totalLessons) * 100);
-
-      // Create congratulatory notification for video completion
       await NotificationHelper.createVideoCompletionNotification(
         currentUserId,
-        lesson.title,
-        module.title,
+        video.title,
+        material?.title || 'Materi Pembelajaran',
         [
-          `Lanjutkan ke video berikutnya dalam modul "${module.title}"`,
-          'Kerjakan latihan soal terkait materi ini',
-          'Review catatan pembelajaran untuk memperdalam pemahaman',
+          'Tonton video berikutnya dalam materi ini',
+          'Kerjakan kuis untuk menguji pemahaman',
+          'Review catatan pembelajaran',
           'Diskusikan materi dengan teman atau dosen',
         ]
       );
-      
-      // Check if module is now complete
-      if (completedCount >= totalLessons) {
-        // Create module completion notification
-        await NotificationHelper.createModuleCompletionNotification(
-          currentUserId,
-          module.title,
-          100
-        );
-        
-        // Create achievement notification for first completed module
-        const completedModulesCount = await getCompletedModulesCount();
-        if (completedModulesCount === 0) {
-          await NotificationHelper.createStreakAchievementNotification(
-            currentUserId,
-            1 // First module completed
-          );
-        }
-        
-        // Show module completion alert
-        Alert.alert(
-          '🏆 Materi Selesai!',
-          `Luar biasa! Anda telah menyelesaikan semua pelajaran dalam materi "${module.title}". Ikuti kuis untuk menguji pemahaman Anda!`,
-          [
-            { text: 'Nanti', style: 'cancel' },
-            { 
-              text: 'Ikuti Kuis', 
-              onPress: () => router.push(`/quiz/${module.id}`)
-            }
-          ]
-        );
-      } else {
-        // Show lesson completion alert with next lesson suggestion
-        const nextLesson = getNextLesson(lesson.id);
-        Alert.alert(
-          '🎉 Pelajaran Selesai!',
-          `Selamat! Anda telah menyelesaikan "${lesson.title}". Lanjutkan pembelajaran untuk mencapai ${completionPercentage}% dari total materi.`,
-          [
-            { text: 'Istirahat', style: 'cancel' },
-            ...(nextLesson ? [{ 
-              text: 'Lanjutkan', 
-              onPress: () => setActiveVideoId(nextLesson.videoId)
-            }] : [])
-          ]
-        );
-      }
-      
-      // Check for learning streak
-      await checkLearningStreak();
-      
-    } catch (error) {
-      console.error('Error handling lesson completion:', error);
+    } catch (e) {
+      console.error('Error creating notification:', e);
     }
   };
 
-  const getTotalLessonsCount = () => {
-    if (!module) return 0;
-    return module.chapters.reduce((sum, chapter) => sum + chapter.lessons.length, 0);
-  };
-
-  const getCompletedModulesCount = async (): Promise<number> => {
-    try {
-      // Check all modules for completion status
-      let completedCount = 0;
-      for (const mod of MODULES) {
-        const stored = await AsyncStorage.getItem(`${PROGRESS_KEY}_${mod.id}`);
-        if (stored) {
-          const progress = JSON.parse(stored);
-          const completedLessons = progress.completedLessons?.length || 0;
-          const totalLessons = mod.chapters?.reduce((sum, chapter) => sum + (chapter.lessons?.length || 0), 0) || 0;
-          if (completedLessons >= totalLessons) {
-            completedCount++;
-          }
-        }
-      }
-      return completedCount;
-    } catch (error) {
-      console.error('Error getting completed modules count:', error);
-      return 0;
-    }
-  };
-
-  const checkLearningStreak = async () => {
-    try {
-      const streak = await ProgressHelper.checkLearningStreak();
-      // Notify on milestone streaks
-      if (streak === 7 || streak === 30 || (streak > 0 && streak % 7 === 0)) {
-        await NotificationHelper.createStreakAchievementNotification(currentUserId, streak);
-      }
-    } catch (error) {
-      console.error('Error checking learning streak:', error);
-    }
-  };
-
-  const getNextLesson = (currentLessonId: string) => {
-    if (!module) return null;
-    
-    // Flatten all lessons from all chapters
-    const allLessons = module.chapters.flatMap(chapter => chapter.lessons);
-    const currentIndex = allLessons.findIndex(l => l.id === currentLessonId);
-    
-    if (currentIndex >= 0 && currentIndex < allLessons.length - 1) {
-      return allLessons[currentIndex + 1];
-    }
-    return null;
-  };
-
-  const handleVideoChange = (videoId: string) => {
-    setActiveVideoId(videoId);
-  };
-
-  if (!module) {
-    console.log('Module not found! ID:', id, 'Available IDs:', MODULES.map(m => m.id));
+  if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background }]}>
-        <StatusBar barStyle={isDark ? 'light-content' : 'light-content'} backgroundColor={Colors.primaryDark} />
-        <View style={[styles.errorContainer, { backgroundColor: theme.background }]}>
+        <StatusBar barStyle="light-content" backgroundColor={Colors.primaryDark} />
+        <LinearGradient colors={[Colors.primaryDark, Colors.primary]} style={styles.loadingHeader}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={24} color={Colors.white} />
+            <Text style={styles.backBtnText}>Kembali</Text>
+          </TouchableOpacity>
+        </LinearGradient>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={[styles.loadingText, { color: theme.textMuted }]}>Memuat materi...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (!material) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <StatusBar barStyle="light-content" backgroundColor={Colors.primaryDark} />
+        <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={64} color={theme.textMuted} />
-          <Text style={[styles.errorText, { color: theme.text }]}>Modul tidak ditemukan</Text>
-          <Text style={[styles.errorSubtext, { color: theme.textMuted }]}>ID: {id}</Text>
-          <TouchableOpacity style={[styles.backButton, { backgroundColor: Colors.primary }]} onPress={() => router.back()}>
-            <Text style={styles.backButtonText}>Kembali</Text>
+          <Text style={[styles.errorText, { color: theme.text }]}>Materi tidak ditemukan</Text>
+          <Text style={[styles.errorSubtext, { color: theme.textMuted }]}>
+            Materi ini mungkin telah dihapus oleh dosen.
+          </Text>
+          <TouchableOpacity
+            style={[styles.errorBackBtn, { backgroundColor: Colors.primary }]}
+            onPress={() => router.back()}
+          >
+            <Text style={styles.errorBackBtnText}>Kembali</Text>
           </TouchableOpacity>
         </View>
       </View>
     );
   }
 
+  const color = getCategoryColor(material.category);
+  const activeVideo = videos[activeVideoIdx];
+  const videoId = activeVideo ? extractYoutubeId(activeVideo.url) : '';
+
   const TABS = [
-    { key: 'deskripsi', label: 'Deskripsi' },
-    { key: 'langkah', label: 'Langkah' },
-    { key: 'alat', label: 'Alat' },
-    { key: 'pelajaran', label: 'Pelajaran' },
+    { key: 'deskripsi', label: 'Deskripsi', icon: 'document-text-outline' },
+    { key: 'video', label: `Video (${videos.length})`, icon: 'play-circle-outline' },
+    { key: 'quiz', label: 'Kuis', icon: 'help-circle-outline' },
   ];
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'light-content'} backgroundColor={Colors.primaryDark} />
-      
-      {/* Header with Gradient */}
+      <StatusBar barStyle="light-content" backgroundColor={Colors.primaryDark} />
+
+      {/* Header */}
       <LinearGradient
-        colors={[module.color, module.color + 'CC', module.color + '99']}
+        colors={[color, color + 'CC']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.header}
       >
         <View style={styles.headerTop}>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color={Colors.white} />
+            <Ionicons name="arrow-back" size={22} color={Colors.white} />
             <Text style={styles.backBtnText}>Kembali</Text>
           </TouchableOpacity>
-          
-          {/* Theme Toggle */}
           <TouchableOpacity style={styles.themeToggle} onPress={toggleTheme}>
             <Ionicons name={isDark ? 'sunny' : 'moon'} size={20} color={Colors.white} />
           </TouchableOpacity>
         </View>
-        
-        <View style={styles.headerContent}>
-          <View style={styles.categoryBadge}>
-            <Text style={styles.categoryText}>{module.category}</Text>
-          </View>
-          <Text style={styles.moduleTitle}>{module.title}</Text>
+        <View style={[styles.categoryBadge, { backgroundColor: 'rgba(255,255,255,0.3)' }]}>
+          <Text style={styles.categoryText}>{material.category}</Text>
         </View>
+        <Text style={styles.moduleTitle}>{material.title}</Text>
+        <Text style={styles.moduleSubtitle}>
+          {videos.length} video • {quiz ? `${quiz.questions?.length || 0} soal quiz` : 'Belum ada quiz'}
+        </Text>
       </LinearGradient>
 
-      {/* Video Player */}
-      <View style={[styles.videoContainer, { height: VIDEO_HEIGHT }]}>
-        <VideoPlayer
-          videoId={activeVideoId || (module.chapters?.[0]?.lessons?.[0]?.videoId ?? '')}
-          title={module?.chapters
-            ?.flatMap(chapter => chapter.lessons)
-            ?.find(l => l.videoId === activeVideoId)?.title || module.chapters?.[0]?.lessons?.[0]?.title || 'Video Pembelajaran'}
-          moduleTitle={module.title}
-          userId={currentUserId}
-          onVideoComplete={() => handleVideoComplete(activeVideoId)}
-          showControls={true}
-        />
-      </View>
+      {/* Video Player — only show when video tab is active and there are videos */}
+      {activeTab === 'video' && videos.length > 0 && videoId ? (
+        <View style={[styles.videoContainer, { height: VIDEO_HEIGHT }]}>
+          <YoutubeIframe
+            height={VIDEO_HEIGHT}
+            width={width}
+            videoId={videoId}
+            play={playing}
+            onChangeState={(state: string) => {
+              if (state === 'ended') {
+                setPlaying(false);
+                handleVideoComplete(activeVideo);
+              }
+            }}
+          />
+        </View>
+      ) : null}
 
       {/* Tab Bar */}
       <View style={[styles.tabBar, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
@@ -309,15 +208,18 @@ export default function ModuleDetailSimpleScreen() {
                 key={tab.key}
                 style={[
                   styles.tab,
-                  { backgroundColor: theme.surface },
-                  activeTab === tab.key && [styles.tabActive, { backgroundColor: module.color }]
+                  activeTab === tab.key && [styles.tabActive, { backgroundColor: color }],
                 ]}
-                onPress={() => setActiveTab(tab.key)}
+                onPress={() => setActiveTab(tab.key as any)}
               >
+                <Ionicons
+                  name={tab.icon as any}
+                  size={14}
+                  color={activeTab === tab.key ? Colors.white : theme.textMuted}
+                />
                 <Text style={[
                   styles.tabText,
-                  { color: theme.text },
-                  activeTab === tab.key && styles.tabTextActive
+                  { color: activeTab === tab.key ? Colors.white : theme.textMuted },
                 ]}>
                   {tab.label}
                 </Text>
@@ -328,874 +230,269 @@ export default function ModuleDetailSimpleScreen() {
       </View>
 
       {/* Content */}
-      <ScrollView style={[styles.content, { backgroundColor: theme.background }]}>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+
+        {/* ── DESKRIPSI TAB ── */}
         {activeTab === 'deskripsi' && (
-          <View style={[styles.section, { backgroundColor: theme.background }]}>
+          <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Tentang Materi</Text>
-            <Text style={[styles.description, { color: theme.textMuted }]}>{module.description}</Text>
-            
+            <Text style={[styles.description, { color: theme.textMuted }]}>
+              {material.description || 'Tidak ada deskripsi untuk materi ini.'}
+            </Text>
+
             <View style={[styles.infoGrid, { backgroundColor: theme.surface }]}>
               <View style={styles.infoItem}>
-                <Text style={[styles.infoLabel, { color: theme.text }]}>📹 Video</Text>
-                <Text style={[styles.infoValue, { color: theme.text }]}>{module.videos}</Text>
+                <Text style={[styles.infoLabel, { color: theme.textMuted }]}>📹 Video</Text>
+                <Text style={[styles.infoValue, { color: theme.text }]}>{videos.length}</Text>
               </View>
               <View style={styles.infoItem}>
-                <Text style={[styles.infoLabel, { color: theme.text }]}>📝 Pelajaran</Text>
-                <Text style={[styles.infoValue, { color: theme.text }]}>{getTotalLessonsCount()}</Text>
+                <Text style={[styles.infoLabel, { color: theme.textMuted }]}>📝 Soal Quiz</Text>
+                <Text style={[styles.infoValue, { color: theme.text }]}>
+                  {quiz ? quiz.questions?.length || 0 : '-'}
+                </Text>
               </View>
               <View style={styles.infoItem}>
-                <Text style={[styles.infoLabel, { color: theme.text }]}>🛠️ Alat</Text>
-                <Text style={[styles.infoValue, { color: theme.text }]}>{(module.tools || []).length}</Text>
+                <Text style={[styles.infoLabel, { color: theme.textMuted }]}>🏷️ Kategori</Text>
+                <Text style={[styles.infoValue, { color: theme.text }]}>{material.category}</Text>
               </View>
-              <View style={styles.infoItem}>
-                <Text style={[styles.infoLabel, { color: theme.text }]}>📊 Progress</Text>
-                <Text style={[styles.infoValue, { color: theme.text }]}>{module.progress}%</Text>
-              </View>
+              {material.estimatedDuration ? (
+                <View style={styles.infoItem}>
+                  <Text style={[styles.infoLabel, { color: theme.textMuted }]}>⏱ Durasi</Text>
+                  <Text style={[styles.infoValue, { color: theme.text }]}>{material.estimatedDuration}</Text>
+                </View>
+              ) : null}
             </View>
 
-            <TouchableOpacity
-              style={[styles.quizButton, { backgroundColor: module.color }]}
-              onPress={() => router.push(`/quiz/${module.id}`)}
-            >
-              <Text style={styles.quizButtonText}>🧠 Ikuti Kuis Materi</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.startVideoBtn, { backgroundColor: Colors.primaryDark }]}
-              onPress={() => {
-                // Langsung play video pertama di halaman ini
-                const firstLesson = module.chapters?.[0]?.lessons?.[0];
-                if (firstLesson) {
-                  setActiveVideoId(firstLesson.videoId);
-                  setActiveTab('pelajaran');
-                }
-              }}
-            >
-              <Ionicons name="play-circle" size={18} color={Colors.white} />
-              <Text style={styles.startVideoBtnText}>▶ Tonton Video Pembelajaran</Text>
-            </TouchableOpacity>
+            <View style={styles.ctaRow}>
+              {videos.length > 0 && (
+                <TouchableOpacity
+                  style={[styles.ctaBtn, { backgroundColor: color }]}
+                  onPress={() => { setActiveTab('video'); setPlaying(true); }}
+                >
+                  <Ionicons name="play-circle" size={18} color={Colors.white} />
+                  <Text style={styles.ctaBtnText}>Tonton Video</Text>
+                </TouchableOpacity>
+              )}
+              {quiz && (
+                <TouchableOpacity
+                  style={[styles.ctaBtnOutline, { borderColor: color }]}
+                  onPress={() => router.push(`/quiz/${quiz.id}`)}
+                >
+                  <Ionicons name="help-circle-outline" size={18} color={color} />
+                  <Text style={[styles.ctaBtnOutlineText, { color }]}>Ikuti Kuis</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         )}
 
-        {activeTab === 'langkah' && (
-          <View style={[styles.section, { backgroundColor: theme.background }]}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Langkah-Langkah Prosedur</Text>
-            {(module.steps || []).map((step, index) => (
-              <View key={step.id || index} style={[styles.stepItem, { backgroundColor: theme.surface }]}>
-                <View style={[styles.stepNumber, { backgroundColor: module.color }]}>
-                  <Text style={styles.stepNumberText}>{index + 1}</Text>
-                </View>
-                <View style={styles.stepContent}>
-                  <Text style={[styles.stepTitle, { color: theme.text }]}>{step.title}</Text>
-                  <Text style={[styles.stepText, { color: theme.textMuted }]}>{step.detail}</Text>
-                  {step.tips && step.tips.length > 0 && (
-                    <View style={[styles.tipsContainer, { backgroundColor: theme.surfaceSecondary }]}>
-                      <Text style={[styles.tipsTitle, { color: theme.text }]}>💡 Tips:</Text>
-                      {step.tips.map((tip, tipIndex) => (
-                        <Text key={tipIndex} style={[styles.tipText, { color: theme.textMuted }]}>• {tip}</Text>
-                      ))}
-                    </View>
-                  )}
-                  {step.isImportant && (
-                    <View style={styles.importantBadge}>
-                      <Ionicons name="warning" size={12} color={Colors.white} />
-                      <Text style={styles.importantText}>Penting</Text>
-                    </View>
-                  )}
-                </View>
+        {/* ── VIDEO TAB ── */}
+        {activeTab === 'video' && (
+          <View style={styles.section}>
+            {videos.length === 0 ? (
+              <View style={styles.emptyTab}>
+                <Ionicons name="play-circle-outline" size={64} color={theme.textMuted} />
+                <Text style={[styles.emptyTabTitle, { color: theme.text }]}>Belum Ada Video</Text>
+                <Text style={[styles.emptyTabText, { color: theme.textMuted }]}>
+                  Dosen belum menambahkan video untuk materi ini.
+                </Text>
               </View>
-            ))}
-          </View>
-        )}
-
-        {activeTab === 'alat' && (
-          <View style={[styles.section, { backgroundColor: theme.background }]}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Alat yang Dibutuhkan</Text>
-            
-            {/* Primary Tools */}
-            <Text style={[styles.toolCategoryTitle, { color: theme.text }]}>🔧 Alat Utama</Text>
-            <View style={styles.toolsGrid}>
-              {(module.tools || [])
-                .filter(tool => typeof tool === 'object' ? tool.category === 'primary' : true)
-                .map((tool, index) => (
-                <View key={tool.id || `primary-${index}`} style={[styles.toolItem, styles.primaryToolItem, { backgroundColor: theme.surface }]}>
-                  <View style={[styles.toolIconContainer, { backgroundColor: module.color + '20' }]}>
-                    <Text style={styles.toolIcon}>🛠️</Text>
-                  </View>
-                  <View style={styles.toolContent}>
-                    <Text style={[styles.toolName, { color: theme.text }]}>{typeof tool === 'string' ? tool : tool.name}</Text>
-                    {typeof tool === 'object' && tool.description && (
-                      <Text style={[styles.toolDescription, { color: theme.textMuted }]}>{tool.description}</Text>
-                    )}
-                  </View>
-                </View>
-              ))}
-            </View>
-
-            {/* Secondary Tools */}
-            {(module.tools || []).some(tool => typeof tool === 'object' && tool.category === 'secondary') && (
+            ) : (
               <>
-                <Text style={[styles.toolCategoryTitle, { color: theme.text }]}>📦 Alat Pendukung</Text>
-                <View style={styles.toolsGrid}>
-                  {(module.tools || [])
-                    .filter(tool => typeof tool === 'object' && tool.category === 'secondary')
-                    .map((tool, index) => (
-                    <View key={tool.id || `secondary-${index}`} style={[styles.toolItem, styles.secondaryToolItem, { backgroundColor: theme.surface }]}>
-                      <View style={[styles.toolIconContainer, { backgroundColor: theme.surfaceSecondary }]}>
-                        <Text style={styles.toolIcon}>📋</Text>
-                      </View>
-                      <View style={styles.toolContent}>
-                        <Text style={[styles.toolName, { color: theme.text }]}>{tool.name}</Text>
-                        {tool.description && (
-                          <Text style={[styles.toolDescription, { color: theme.textMuted }]}>{tool.description}</Text>
-                        )}
-                      </View>
+                <Text style={[styles.sectionTitle, { color: theme.text }]}>Daftar Video</Text>
+                {videos.map((video, idx) => (
+                  <TouchableOpacity
+                    key={video.id}
+                    style={[
+                      styles.videoItem,
+                      { backgroundColor: theme.card, borderColor: theme.border },
+                      activeVideoIdx === idx && { borderColor: color, borderWidth: 2 },
+                    ]}
+                    onPress={() => {
+                      setActiveVideoIdx(idx);
+                      setPlaying(true);
+                    }}
+                    activeOpacity={0.85}
+                  >
+                    <View style={[styles.videoItemIcon, { backgroundColor: activeVideoIdx === idx ? color : theme.surfaceSecondary }]}>
+                      <Ionicons
+                        name={activeVideoIdx === idx ? 'pause' : 'play'}
+                        size={16}
+                        color={activeVideoIdx === idx ? Colors.white : theme.textMuted}
+                      />
                     </View>
-                  ))}
+                    <View style={styles.videoItemContent}>
+                      <Text style={[styles.videoItemTitle, { color: theme.text }]} numberOfLines={2}>
+                        {video.title}
+                      </Text>
+                      {video.description ? (
+                        <Text style={[styles.videoItemDesc, { color: theme.textMuted }]} numberOfLines={1}>
+                          {video.description}
+                        </Text>
+                      ) : null}
+                      {video.duration ? (
+                        <Text style={[styles.videoItemDuration, { color: theme.textMuted }]}>
+                          ⏱ {video.duration}
+                        </Text>
+                      ) : null}
+                    </View>
+                    {activeVideoIdx === idx && (
+                      <View style={[styles.nowPlayingBadge, { backgroundColor: color }]}>
+                        <Text style={styles.nowPlayingText}>▶ Aktif</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </>
+            )}
+          </View>
+        )}
+
+        {/* ── QUIZ TAB ── */}
+        {activeTab === 'quiz' && (
+          <View style={styles.section}>
+            {!quiz ? (
+              <View style={styles.emptyTab}>
+                <Ionicons name="help-circle-outline" size={64} color={theme.textMuted} />
+                <Text style={[styles.emptyTabTitle, { color: theme.text }]}>Belum Ada Kuis</Text>
+                <Text style={[styles.emptyTabText, { color: theme.textMuted }]}>
+                  Dosen belum menambahkan kuis untuk materi ini.
+                </Text>
+              </View>
+            ) : (
+              <>
+                <Text style={[styles.sectionTitle, { color: theme.text }]}>Kuis Evaluasi</Text>
+                <View style={[styles.quizCard, { backgroundColor: theme.card, borderColor: color }]}>
+                  <View style={[styles.quizCardIcon, { backgroundColor: color + '20' }]}>
+                    <Ionicons name="help-circle" size={32} color={color} />
+                  </View>
+                  <Text style={[styles.quizCardTitle, { color: theme.text }]}>{quiz.title}</Text>
+                  {quiz.description ? (
+                    <Text style={[styles.quizCardDesc, { color: theme.textMuted }]}>{quiz.description}</Text>
+                  ) : null}
+                  <View style={styles.quizMeta}>
+                    <View style={[styles.quizMetaItem, { backgroundColor: theme.surfaceSecondary }]}>
+                      <Ionicons name="list-outline" size={14} color={theme.textMuted} />
+                      <Text style={[styles.quizMetaText, { color: theme.textMuted }]}>
+                        {quiz.questions?.length || 0} soal
+                      </Text>
+                    </View>
+                    <View style={[styles.quizMetaItem, { backgroundColor: theme.surfaceSecondary }]}>
+                      <Ionicons name="time-outline" size={14} color={theme.textMuted} />
+                      <Text style={[styles.quizMetaText, { color: theme.textMuted }]}>
+                        {quiz.timeLimit} menit
+                      </Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.startQuizBtn, { backgroundColor: color }]}
+                    onPress={() => router.push(`/quiz/${quiz.id}`)}
+                  >
+                    <Ionicons name="play" size={16} color={Colors.white} />
+                    <Text style={styles.startQuizBtnText}>Mulai Kuis</Text>
+                  </TouchableOpacity>
                 </View>
               </>
             )}
           </View>
         )}
 
-        {activeTab === 'pelajaran' && (
-          <View style={[styles.section, { backgroundColor: theme.background }]}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Daftar Pelajaran</Text>
-            <View style={[styles.progressSummary, { backgroundColor: theme.surface }]}>
-              <Text style={[styles.progressText, { color: theme.text }]}>
-                Progress: {completedLessons.length}/{getTotalLessonsCount()} pelajaran selesai
-              </Text>
-              <View style={[styles.progressBar, { backgroundColor: theme.surfaceSecondary }]}>
-                <View 
-                  style={[
-                    styles.progressFill, 
-                    { 
-                      width: `${(completedLessons.length / getTotalLessonsCount()) * 100}%`,
-                      backgroundColor: module.color 
-                    }
-                  ]} 
-                />
-              </View>
-            </View>
-            
-            {module.chapters.map((chapter, chapterIndex) => (
-              <View key={chapter.id}>
-                <Text style={[styles.chapterTitle, { color: module.color }]}>
-                  {chapter.title}
-                </Text>
-                <Text style={[styles.chapterDescription, { color: theme.textMuted }]}>
-                  {chapter.description}
-                </Text>
-                
-                {chapter.lessons.map((lesson, lessonIndex) => {
-                  const isCompleted = completedLessons.includes(lesson.id);
-                  const isWatched = watchedVideos.includes(lesson.videoId);
-                  const isActive = activeVideoId === lesson.videoId;
-                  
-                  return (
-                    <TouchableOpacity
-                      key={lesson.id}
-                      style={[
-                        styles.lessonItem,
-                        { backgroundColor: theme.surface, borderColor: theme.border },
-                        isActive && { borderColor: module.color, borderWidth: 2 },
-                        isCompleted && { backgroundColor: `${module.color}10` }
-                      ]}
-                      onPress={() => router.push(`/video-player?moduleId=${id}&lessonId=${lesson.id}`)}
-                    >
-                      <View style={[
-                        styles.lessonNumber,
-                        { 
-                          backgroundColor: isCompleted 
-                            ? module.color 
-                            : isActive 
-                              ? module.color 
-                              : theme.surfaceSecondary 
-                        }
-                      ]}>
-                        {isCompleted ? (
-                          <Ionicons name="checkmark" size={16} color={Colors.white} />
-                        ) : (
-                          <Text style={[
-                            styles.lessonNumberText,
-                            { color: isActive ? Colors.white : theme.textMuted }
-                          ]}>
-                            {isActive ? '▶️' : (lessonIndex + 1)}
-                          </Text>
-                        )}
-                      </View>
-                      
-                      <View style={styles.lessonContent}>
-                        <View style={styles.lessonTitleRow}>
-                          <Text style={[
-                            styles.lessonTitle,
-                            { color: theme.text },
-                            isCompleted && { color: module.color }
-                          ]}>
-                            {lesson.title}
-                          </Text>
-                          {isWatched && !isCompleted && (
-                            <Ionicons name="eye" size={14} color={Colors.blue} />
-                          )}
-                        </View>
-                        <Text style={[styles.lessonDuration, { color: theme.textMuted }]}>⏱️ {lesson.duration}</Text>
-                        {lesson.description && (
-                          <Text style={[styles.lessonDescription, { color: theme.textMuted }]}>{lesson.description}</Text>
-                        )}
-                      </View>
-                      
-                      <View style={styles.lessonActions}>
-                        {isCompleted && (
-                          <View style={[styles.completedBadge, { backgroundColor: module.color }]}>
-                            <Ionicons name="checkmark-circle" size={12} color={Colors.white} />
-                          </View>
-                        )}
-                        <Text style={styles.playIcon}>
-                          {isActive ? '⏸️' : '▶️'}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            ))}
-            
-            {/* Next Module Suggestion */}
-            {completedLessons.length === getTotalLessonsCount() && (
-              <View style={[styles.completionCard, { borderColor: module.color, backgroundColor: theme.surface }]}>
-                <Ionicons name="trophy" size={32} color={module.color} />
-                <Text style={[styles.completionTitle, { color: module.color }]}>
-                  🎉 Materi Selesai!
-                </Text>
-                <Text style={[styles.completionText, { color: theme.text }]}>
-                  Selamat! Anda telah menyelesaikan semua pelajaran dalam materi ini.
-                </Text>
-                <TouchableOpacity
-                  style={[styles.nextModuleBtn, { backgroundColor: module.color }]}
-                  onPress={() => router.push(`/quiz/${module.id}`)}
-                >
-                  <Text style={styles.nextModuleBtnText}>Ikuti Kuis Evaluasi</Text>
-                  <Ionicons name="arrow-forward" size={16} color={Colors.white} />
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        )}
+        <View style={{ height: 40 }} />
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.gray50,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: Colors.gray50,
-  },
-  errorText: {
-    fontSize: 18,
-    color: Colors.slate700,
-    marginBottom: 8,
-    fontWeight: '600',
-  },
-  errorSubtext: {
-    fontSize: 14,
-    color: Colors.slate500,
-    marginBottom: 20,
-  },
-  backButton: {
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  backButtonText: {
-    color: Colors.white,
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  header: {
-    paddingTop: 40,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
-  },
-  headerTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  themeToggle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: 'rgba(0,0,0,0.1)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
+  container: { flex: 1 },
+  loadingHeader: { paddingTop: 52, paddingBottom: 20, paddingHorizontal: 20 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
+  loadingText: { fontSize: 14 },
+  errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, gap: 12 },
+  errorText: { fontSize: 18, fontWeight: '700', textAlign: 'center' },
+  errorSubtext: { fontSize: 14, textAlign: 'center', lineHeight: 20 },
+  errorBackBtn: { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, marginTop: 8 },
+  errorBackBtnText: { color: Colors.white, fontWeight: '700', fontSize: 16 },
+
+  header: { paddingTop: 52, paddingBottom: 20, paddingHorizontal: 20 },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   backBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 16,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    borderRadius: 25,
-    alignSelf: 'flex-start',
-    shadowColor: 'rgba(0,0,0,0.1)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 4,
-    elevation: 3,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingVertical: 8, paddingHorizontal: 14,
+    backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: 24, alignSelf: 'flex-start',
   },
-  backBtnText: {
-    color: Colors.white,
-    fontSize: 16,
-    fontWeight: '700',
+  backBtnText: { color: Colors.white, fontSize: 15, fontWeight: '700' },
+  themeToggle: {
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: 'rgba(255,255,255,0.25)', alignItems: 'center', justifyContent: 'center',
   },
-  headerContent: {
-    gap: 10,
-  },
-  categoryBadge: {
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-  categoryText: {
-    color: Colors.white,
-    fontSize: 12,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  moduleTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: Colors.white,
-    lineHeight: 30,
-    textShadowColor: 'rgba(0,0,0,0.1)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  videoContainer: {
-    backgroundColor: '#000',
-    position: 'relative',
-  },
-  videoPlayerContainer: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
-  videoThumbnail: {
-    flex: 1,
-    position: 'relative',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  thumbnailImage: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#1a1a1a',
-  },
-  playButton: {
-    position: 'absolute',
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 3,
-    borderColor: Colors.white,
-  },
-  videoInfoOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0,0,0,0.8)',
-    padding: 16,
-  },
-  videoTitle: {
-    color: Colors.white,
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  progressContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  progressBar: {
-    flex: 1,
-    height: 4,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: Colors.primary,
-    borderRadius: 2,
-  },
-  progressText: {
-    color: Colors.white,
-    fontSize: 12,
-    fontWeight: '600',
-    minWidth: 32,
-  },
-  playingIndicator: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(0,167,142,0.9)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  playingText: {
-    color: Colors.white,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  videoPlaceholder: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#000',
-    gap: 12,
-  },
-  videoPlaceholderText: {
-    color: Colors.white,
-    fontSize: 16,
-  },
-  tabBar: {
-    backgroundColor: Colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.gray200,
-    paddingVertical: 16,
-    shadowColor: Colors.slate400,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  tabRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    gap: 16,
-  },
+  categoryBadge: { alignSelf: 'flex-start', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16, marginBottom: 8 },
+  categoryText: { color: Colors.white, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 },
+  moduleTitle: { fontSize: 22, fontWeight: '800', color: Colors.white, lineHeight: 28, marginBottom: 6 },
+  moduleSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.8)' },
+
+  videoContainer: { backgroundColor: '#000' },
+
+  tabBar: { borderBottomWidth: 1 },
+  tabRow: { flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 8, gap: 8 },
   tab: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 30,
-    backgroundColor: Colors.gray100,
-    borderWidth: 1,
-    borderColor: Colors.gray200,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
   },
-  tabActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 8,
-    transform: [{ scale: 1.02 }],
+  tabActive: {},
+  tabText: { fontSize: 13, fontWeight: '600' },
+
+  content: { flex: 1 },
+  section: { padding: 20 },
+  sectionTitle: { fontSize: 18, fontWeight: '700', marginBottom: 12 },
+  description: { fontSize: 14, lineHeight: 22, marginBottom: 16 },
+
+  infoGrid: { flexDirection: 'row', flexWrap: 'wrap', borderRadius: 14, padding: 16, gap: 16, marginBottom: 20 },
+  infoItem: { width: '45%', gap: 4 },
+  infoLabel: { fontSize: 12 },
+  infoValue: { fontSize: 16, fontWeight: '700' },
+
+  ctaRow: { flexDirection: 'row', gap: 12 },
+  ctaBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 14, borderRadius: 12,
   },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.slate600,
+  ctaBtnText: { color: Colors.white, fontSize: 14, fontWeight: '700' },
+  ctaBtnOutline: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 14, borderRadius: 12, borderWidth: 2,
   },
-  tabTextActive: {
-    color: Colors.white,
-    fontWeight: '800',
+  ctaBtnOutlineText: { fontSize: 14, fontWeight: '700' },
+
+  emptyTab: { alignItems: 'center', paddingTop: 40, gap: 12 },
+  emptyTabTitle: { fontSize: 18, fontWeight: '700' },
+  emptyTabText: { fontSize: 14, textAlign: 'center', lineHeight: 20 },
+
+  videoItem: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    padding: 14, borderRadius: 14, borderWidth: 1, marginBottom: 10,
   },
-  content: {
-    flex: 1,
-    backgroundColor: Colors.gray50,
+  videoItemIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  videoItemContent: { flex: 1 },
+  videoItemTitle: { fontSize: 14, fontWeight: '600', marginBottom: 3 },
+  videoItemDesc: { fontSize: 12, marginBottom: 3 },
+  videoItemDuration: { fontSize: 11 },
+  nowPlayingBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  nowPlayingText: { color: Colors.white, fontSize: 10, fontWeight: '700' },
+
+  quizCard: {
+    borderRadius: 16, padding: 20, borderWidth: 2,
+    alignItems: 'center', gap: 12,
   },
-  section: {
-    padding: 24,
+  quizCardIcon: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center' },
+  quizCardTitle: { fontSize: 18, fontWeight: '700', textAlign: 'center' },
+  quizCardDesc: { fontSize: 13, textAlign: 'center', lineHeight: 20 },
+  quizMeta: { flexDirection: 'row', gap: 12 },
+  quizMetaItem: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
+  quizMetaText: { fontSize: 13, fontWeight: '600' },
+  startQuizBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 32, paddingVertical: 14, borderRadius: 12, marginTop: 4,
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: Colors.slate800,
-    marginBottom: 20,
-    letterSpacing: -0.5,
-  },
-  description: {
-    fontSize: 15,
-    color: Colors.slate600,
-    lineHeight: 24,
-    marginBottom: 28,
-  },
-  infoGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 16,
-    marginBottom: 32,
-  },
-  infoItem: {
-    backgroundColor: Colors.white,
-    padding: 24,
-    borderRadius: 20,
-    width: (width - 64) / 2,
-    alignItems: 'center',
-    shadowColor: Colors.slate400,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 8,
-    borderWidth: 1,
-    borderColor: Colors.gray100,
-  },
-  infoLabel: {
-    fontSize: 14,
-    color: Colors.slate500,
-    marginBottom: 12,
-    fontWeight: '600',
-  },
-  infoValue: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: Colors.slate800,
-  },
-  quizButton: {
-    backgroundColor: Colors.primary,
-    paddingVertical: 20,
-    borderRadius: 20,
-    alignItems: 'center',
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 12,
-    marginBottom: 12,
-  },
-  quizButtonText: {
-    color: Colors.white,
-    fontSize: 17,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  startVideoBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 16,
-    borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  startVideoBtnText: {
-    color: Colors.white,
-    fontSize: 15,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  stepItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 20,
-    backgroundColor: Colors.white,
-    padding: 20,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
-    borderLeftWidth: 4,
-    borderLeftColor: Colors.primary,
-  },
-  stepNumber: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-    flexShrink: 0,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  stepNumberText: {
-    color: Colors.white,
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  stepContent: {
-    flex: 1,
-  },
-  stepTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: Colors.gray900,
-    marginBottom: 8,
-    lineHeight: 22,
-  },
-  stepText: {
-    fontSize: 14,
-    color: Colors.gray700,
-    lineHeight: 22,
-    marginBottom: 12,
-  },
-  tipsContainer: {
-    backgroundColor: Colors.blue + '15',
-    padding: 16,
-    borderRadius: 12,
-    marginTop: 12,
-    borderLeftWidth: 3,
-    borderLeftColor: Colors.blue,
-  },
-  tipsTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: Colors.blue,
-    marginBottom: 8,
-  },
-  tipText: {
-    fontSize: 13,
-    color: Colors.blue,
-    lineHeight: 18,
-    marginBottom: 4,
-  },
-  importantBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: Colors.orange,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    alignSelf: 'flex-start',
-    marginTop: 12,
-    shadowColor: Colors.orange,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  importantText: {
-    color: Colors.white,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  toolsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 20,
-  },
-  toolCategoryTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: Colors.gray900,
-    marginBottom: 12,
-    marginTop: 8,
-  },
-  toolItem: {
-    backgroundColor: Colors.white,
-    padding: 16,
-    borderRadius: 16,
-    width: (width - 52) / 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
-    borderWidth: 1,
-    borderColor: Colors.slate200,
-  },
-  primaryToolItem: {
-    borderLeftWidth: 4,
-    borderLeftColor: Colors.primary,
-  },
-  secondaryToolItem: {
-    borderLeftWidth: 4,
-    borderLeftColor: Colors.amber,
-  },
-  toolIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  toolIcon: {
-    fontSize: 24,
-  },
-  toolContent: {
-    flex: 1,
-    width: '100%',
-  },
-  toolName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: Colors.gray900,
-    marginBottom: 6,
-    lineHeight: 18,
-  },
-  toolDescription: {
-    fontSize: 12,
-    color: Colors.gray500,
-    lineHeight: 16,
-  },
-  
-  // Enhanced Lesson Styles
-  progressSummary: {
-    backgroundColor: Colors.white,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-  },
-  
-  chapterTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginTop: 20,
-    marginBottom: 8,
-  },
-  chapterDescription: {
-    fontSize: 13,
-    color: Colors.gray500,
-    marginBottom: 12,
-    lineHeight: 18,
-  },
-  
-  lessonItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.white,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  lessonNumber: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  lessonNumberText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  lessonContent: {
-    flex: 1,
-  },
-  lessonTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  lessonTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.gray900,
-    flex: 1,
-  },
-  lessonDuration: {
-    fontSize: 12,
-    color: Colors.gray500,
-    marginBottom: 4,
-  },
-  lessonDescription: {
-    fontSize: 11,
-    color: Colors.gray400,
-    lineHeight: 14,
-  },
-  lessonActions: {
-    alignItems: 'center',
-    gap: 8,
-  },
-  completedBadge: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  playIcon: {
-    fontSize: 20,
-  },
-  
-  // Completion Card
-  completionCard: {
-    backgroundColor: Colors.white,
-    padding: 24,
-    borderRadius: 16,
-    alignItems: 'center',
-    marginTop: 16,
-    borderWidth: 2,
-    gap: 12,
-  },
-  completionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  completionText: {
-    fontSize: 14,
-    color: Colors.gray500,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  nextModuleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 12,
-    marginTop: 8,
-  },
-  nextModuleBtnText: {
-    color: Colors.white,
-    fontWeight: '700',
-    fontSize: 14,
-  },
+  startQuizBtnText: { color: Colors.white, fontSize: 16, fontWeight: '700' },
 });

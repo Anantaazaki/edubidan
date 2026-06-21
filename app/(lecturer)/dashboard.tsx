@@ -15,7 +15,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { Colors } from '../../src/constants/colors';
-import { MODULES } from '../../src/constants/modules';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LecturerDatabase, Material } from '../../src/utils/lecturerDatabase';
 import { UserDatabase } from '../../src/utils/userDatabase';

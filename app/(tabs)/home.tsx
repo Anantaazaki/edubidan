@@ -14,10 +14,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { Colors } from '../../src/constants/colors';
-import { MODULES } from '../../src/constants/modules';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ProgressHelper } from '../../src/utils/progressHelper';
 import { UserDatabase } from '../../src/utils/userDatabase';
+import { LecturerDatabase, Material, Video, Quiz } from '../../src/utils/lecturerDatabase';
 
 // Notification interface
 interface Notification {
@@ -40,8 +39,10 @@ export default function HomeScreen() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   
-  // Progress state
-  const [moduleProgress, setModuleProgress] = useState<{[key: string]: number}>({});
+  // Real materials from Firestore
+  const [materials, setMaterials] = useState<Material[]>([]);
+  const [videos, setVideos] = useState<Video[]>([]);
+  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
 
   // User data state - load dari database/storage
   const [currentUser, setCurrentUser] = useState({
@@ -126,10 +127,10 @@ export default function HomeScreen() {
     }, [])
   );
 
-  // Load notifications and progress from storage
+  // Load notifications and materials from Firestore
   useEffect(() => {
     loadNotifications();
-    loadProgress();
+    loadMaterials();
   }, []);
   
   // Reload user data when screen is focused
@@ -138,18 +139,33 @@ export default function HomeScreen() {
     loadCurrentUser();
   }, []);
 
-  const loadProgress = async () => {
+  const loadMaterials = async () => {
     try {
-      const progressData = await ProgressHelper.loadAllProgress();
-      const result: {[key: string]: number} = {};
-      for (const module of MODULES) {
-        const completed = progressData[module.id] || 0;
-        const totalLessons = module.chapters.reduce((sum, chapter) => sum + chapter.lessons.length, 0);
-        result[module.id] = totalLessons > 0 ? completed / totalLessons : 0;
+      // Try cache first
+      const cached = await AsyncStorage.getItem('@home_materials_cache');
+      if (cached) {
+        const { materials: m, videos: v, quizzes: q } = JSON.parse(cached);
+        if (m) setMaterials(m.filter((mat: Material) => mat.status === 'published'));
+        if (v) setVideos(v.filter((vid: Video) => vid.status === 'published'));
+        if (q) setQuizzes(q.filter((qz: Quiz) => qz.status === 'published'));
       }
-      setModuleProgress(result);
+      // Always refresh from Firestore in background
+      const [m, v, q] = await Promise.all([
+        LecturerDatabase.getAllMaterials(),
+        LecturerDatabase.getAllVideos(),
+        LecturerDatabase.getAllQuizzes(),
+      ]);
+      const pubMaterials = m.filter(mat => mat.status === 'published');
+      const pubVideos = v.filter(vid => vid.status === 'published');
+      const pubQuizzes = q.filter(qz => qz.status === 'published');
+      setMaterials(pubMaterials);
+      setVideos(pubVideos);
+      setQuizzes(pubQuizzes);
+      await AsyncStorage.setItem('@home_materials_cache', JSON.stringify({
+        materials: pubMaterials, videos: pubVideos, quizzes: pubQuizzes,
+      })).catch(() => {});
     } catch (error) {
-      console.error('Error loading progress:', error);
+      console.error('Error loading materials:', error);
     }
   };
 
@@ -242,25 +258,10 @@ export default function HomeScreen() {
     return `${days} hari yang lalu`;
   };
 
-  const completedModules = Object.values(moduleProgress).filter((progress) => progress >= 1).length;
-  const inProgressModules = Object.values(moduleProgress).filter((progress) => progress > 0 && progress < 1).length;
-  const totalProgress = Object.keys(moduleProgress).length > 0 
-    ? Object.values(moduleProgress).reduce((sum, progress) => sum + progress, 0) / Object.keys(moduleProgress).length 
-    : 0;
-
-  const totalLessonsCompleted = MODULES.reduce((sum, m) => {
-    const progress = moduleProgress[m.id] || 0;
-    const totalLessons = m.chapters.reduce((sum, chapter) => sum + chapter.lessons.length, 0);
-    return sum + Math.floor(progress * totalLessons);
-  }, 0);
-  const totalLessons = MODULES.reduce((sum, m) => {
-    return sum + m.chapters.reduce((sum, chapter) => sum + chapter.lessons.length, 0);
-  }, 0);
-  const totalVideosWatched = MODULES.reduce((sum, m) => {
-    const progress = moduleProgress[m.id] || 0;
-    return sum + Math.floor(progress * (m.videos || 0));
-  }, 0);
-  const totalVideos = MODULES.reduce((sum, m) => sum + (m.videos || 0), 0);
+  // Stats derived from real Firestore data
+  const totalMaterials = materials.length;
+  const totalVideos = videos.length;
+  const totalQuizzes = quizzes.length;
 
   const getGreeting = () => greeting || 'Selamat Pagi';
   const getCurrentDate = () => currentDate;
@@ -330,40 +331,34 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          {/* Enhanced Progress Card */}
+          {/* Progress Card — real stats from Firestore */}
           <View style={styles.progressCard}>
             <View style={styles.progressCardHeader}>
               <View>
-                <Text style={styles.progressCardTitle}>Progress Pembelajaran</Text>
+                <Text style={styles.progressCardTitle}>Konten Pembelajaran</Text>
                 <Text style={styles.progressCardSubtitle}>
-                  {totalLessonsCompleted} dari {totalLessons} pelajaran selesai
+                  Tersedia dari dosen untuk dipelajari
                 </Text>
               </View>
               <View style={styles.progressCardPercent}>
-                <Text style={styles.progressPercentText}>
-                  {Math.round(totalProgress * 100)}%
-                </Text>
+                <Text style={styles.progressPercentText}>{totalMaterials}</Text>
+                <Text style={[styles.progressCardSubtitle, { fontSize: 10 }]}>Materi</Text>
               </View>
-            </View>
-            <View style={styles.progressBarBg}>
-              <View
-                style={[styles.progressBarFill, { width: `${totalProgress * 100}%` }]}
-              />
             </View>
             <View style={styles.progressStats}>
               <View style={styles.progressStat}>
-                <Text style={styles.progressStatValue}>{completedModules}</Text>
-                <Text style={styles.progressStatLabel}>Modul Selesai</Text>
+                <Text style={styles.progressStatValue}>{totalMaterials}</Text>
+                <Text style={styles.progressStatLabel}>Materi</Text>
               </View>
               <View style={styles.progressStatDivider} />
               <View style={styles.progressStat}>
-                <Text style={styles.progressStatValue}>{inProgressModules}</Text>
-                <Text style={styles.progressStatLabel}>Sedang Belajar</Text>
+                <Text style={styles.progressStatValue}>{totalVideos}</Text>
+                <Text style={styles.progressStatLabel}>Video</Text>
               </View>
               <View style={styles.progressStatDivider} />
               <View style={styles.progressStat}>
-                <Text style={styles.progressStatValue}>{totalVideosWatched}</Text>
-                <Text style={styles.progressStatLabel}>Video Ditonton</Text>
+                <Text style={styles.progressStatValue}>{totalQuizzes}</Text>
+                <Text style={styles.progressStatLabel}>Kuis</Text>
               </View>
             </View>
           </View>
@@ -380,7 +375,7 @@ export default function HomeScreen() {
             >
               <Ionicons name="book" size={28} color={Colors.primary} />
               <Text style={[styles.quickActionText, { color: Colors.primary }]}>Semua Materi</Text>
-              <Text style={[styles.quickActionSubtext, { color: Colors.primary }]}>5 modul</Text>
+              <Text style={[styles.quickActionSubtext, { color: Colors.primary }]}>{totalMaterials} materi</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.quickAction, { backgroundColor: Colors.blueLight }]}
@@ -393,7 +388,7 @@ export default function HomeScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.quickAction, { backgroundColor: Colors.amberLight }]}
-              onPress={() => router.push(`/quiz/${MODULES[0]?.id || '1'}`)}
+              onPress={() => router.push('/(tabs)/materi')}
               activeOpacity={0.8}
             >
               <Ionicons name="help-circle" size={28} color={Colors.amber} />
@@ -412,88 +407,81 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* ── All Modules ── */}
+        {/* ── All Materials from Firestore ── */}
         <View style={[styles.section, { backgroundColor: theme.background }]}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Semua Modul Pembelajaran</Text>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>Materi Pembelajaran</Text>
             <TouchableOpacity onPress={() => router.push('/(tabs)/materi')}>
-              <Text style={styles.seeAll}>Lihat Detail</Text>
+              <Text style={styles.seeAll}>Lihat Semua</Text>
             </TouchableOpacity>
           </View>
-          
-          <View style={styles.modulesGrid}>
-            {(MODULES || []).map((module) => {
-              const progress = moduleProgress[module.id] || 0;
-              
-              return (
-                <TouchableOpacity
-                  key={module.id}
-                  style={[styles.moduleGridCard, { backgroundColor: theme.card, borderLeftColor: module.color }]}
-                  onPress={() => router.push(`/module/${module.id}`)}
-                  activeOpacity={0.85}
-                >
-                  <View style={styles.moduleGridHeader}>
-                    <View style={[styles.moduleGridIcon, { backgroundColor: module.color + '20' }]}>
-                      <Ionicons name="book-outline" size={20} color={module.color} />
-                    </View>
-                    <View style={[styles.moduleGridBadge, { backgroundColor: module.color + '20' }]}>
-                      <Text style={[styles.moduleGridBadgeText, { color: module.color }]}>
-                        {module.category}
-                      </Text>
-                    </View>
-                  </View>
-                  
-                  <Text style={[styles.moduleGridTitle, { color: theme.text }]} numberOfLines={2}>
-                    {module.title}
-                  </Text>
-                  
-                  <View style={styles.moduleGridMeta}>
-                    <View style={styles.moduleGridMetaItem}>
-                      <Ionicons name="play-circle-outline" size={12} color={theme.textMuted} />
-                      <Text style={[styles.moduleGridMetaText, { color: theme.textMuted }]}>
-                        {module.videos}
-                      </Text>
-                    </View>
-                    <View style={styles.moduleGridMetaItem}>
-                      <Ionicons name="list-outline" size={12} color={theme.textMuted} />
-                      <Text style={[styles.moduleGridMetaText, { color: theme.textMuted }]}>
-                        {module.chapters.reduce((sum, chapter) => sum + chapter.lessons.length, 0)}
-                      </Text>
-                    </View>
-                    <View style={styles.moduleGridMetaItem}>
-                      <Ionicons name="time-outline" size={12} color={theme.textMuted} />
-                      <Text style={[styles.moduleGridMetaText, { color: theme.textMuted }]}>
-                        {module.duration.split(' ')[0]}
-                      </Text>
-                    </View>
-                  </View>
 
-                  <View style={styles.moduleGridProgress}>
-                    <View style={[styles.moduleGridProgressBg, { backgroundColor: theme.border }]}>
-                      <View
-                        style={[
-                          styles.moduleGridProgressFill,
-                          { width: `${progress * 100}%`, backgroundColor: module.color },
-                        ]}
-                      />
-                    </View>
-                    <Text style={[styles.moduleGridProgressText, { color: theme.textMuted }]}>
-                      {Math.round(progress * 100)}%
-                    </Text>
-                  </View>
+          {materials.length === 0 ? (
+            <View style={[styles.emptyCard, { backgroundColor: theme.card }]}>
+              <Ionicons name="book-outline" size={48} color={theme.textMuted} />
+              <Text style={[styles.emptyTitle, { color: theme.text }]}>Belum Ada Materi</Text>
+              <Text style={[styles.emptyText, { color: theme.textMuted }]}>
+                Dosen belum menambahkan materi. Cek kembali nanti.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.modulesGrid}>
+              {materials.map((material) => {
+                const matVideos = videos.filter(v => v.materialId === material.id);
+                const matQuiz = quizzes.find(q => q.materialId === material.id);
+                const colorMap: Record<string, string> = {
+                  Kehamilan: '#4CAF50', Persalinan: '#2196F3', Nifas: '#9C27B0',
+                  Neonatus: '#FF9800', Laktasi: '#E91E63', KB: '#00BCD4',
+                };
+                const color = colorMap[material.category] || Colors.primary;
 
-                  <View style={styles.moduleGridFooter}>
-                    <Text style={[styles.moduleGridStatus, { 
-                      color: progress > 0 ? Colors.primary : theme.textMuted 
-                    }]}>
-                      {progress > 0 ? 'Sedang Belajar' : 'Belum Dimulai'}
+                return (
+                  <TouchableOpacity
+                    key={material.id}
+                    style={[styles.moduleGridCard, { backgroundColor: theme.card, borderLeftColor: color }]}
+                    onPress={() => router.push(`/module/${material.id}`)}
+                    activeOpacity={0.85}
+                  >
+                    <View style={styles.moduleGridHeader}>
+                      <View style={[styles.moduleGridIcon, { backgroundColor: color + '20' }]}>
+                        <Ionicons name="book-outline" size={20} color={color} />
+                      </View>
+                      <View style={[styles.moduleGridBadge, { backgroundColor: color + '20' }]}>
+                        <Text style={[styles.moduleGridBadgeText, { color }]}>
+                          {material.category}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <Text style={[styles.moduleGridTitle, { color: theme.text }]} numberOfLines={2}>
+                      {material.title}
                     </Text>
-                    <Ionicons name="chevron-forward" size={14} color={theme.textMuted} />
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+
+                    <View style={styles.moduleGridMeta}>
+                      <View style={styles.moduleGridMetaItem}>
+                        <Ionicons name="play-circle-outline" size={12} color={theme.textMuted} />
+                        <Text style={[styles.moduleGridMetaText, { color: theme.textMuted }]}>
+                          {matVideos.length}
+                        </Text>
+                      </View>
+                      <View style={styles.moduleGridMetaItem}>
+                        <Ionicons name="help-circle-outline" size={12} color={theme.textMuted} />
+                        <Text style={[styles.moduleGridMetaText, { color: theme.textMuted }]}>
+                          {matQuiz ? matQuiz.questions?.length || 0 : 0} soal
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.moduleGridFooter}>
+                      <Text style={[styles.moduleGridStatus, { color }]}>
+                        Pelajari →
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
         </View>
 
         <View style={styles.bottomPad} />

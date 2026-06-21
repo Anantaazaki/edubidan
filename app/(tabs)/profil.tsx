@@ -19,8 +19,7 @@ import { useTheme } from '../../src/contexts/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../../src/constants/colors';
 import { UserDatabase, User } from '../../src/utils/userDatabase';
-import { MODULES } from '../../src/constants/modules';
-import { ProgressHelper } from '../../src/utils/progressHelper';
+import { LecturerDatabase, Material, Video, Quiz } from '../../src/utils/lecturerDatabase';
 
 const USER_DATA_KEY = '@edubidan_user_data';
 const NOTIFICATIONS_KEY = '@edubidan_notifications';
@@ -244,30 +243,37 @@ export default function ProfilScreen() {
     Alert.alert('Sukses', 'Profil berhasil diperbarui');
   };
 
-  const completedModules = MODULES.filter((m) => m.progress >= 1).length;
-  const totalProgress = Math.round(
-    (MODULES.reduce((sum, m) => sum + m.progress, 0) / MODULES.length) * 100
-  );
+  // Real materials from Firestore
+  const [materials, setMaterials] = React.useState<Material[]>([]);
+  const [videos, setVideos] = React.useState<Video[]>([]);
+  const [quizzes, setQuizzes] = React.useState<Quiz[]>([]);
 
-  // Load real progress dari Firebase/AsyncStorage
-  const [moduleProgress, setModuleProgress] = React.useState<{[key: string]: number}>({});
-  
   React.useEffect(() => {
-    ProgressHelper.loadAllProgress().then(progressData => {
-      const result: {[key: string]: number} = {};
-      for (const module of MODULES) {
-        const completed = progressData[module.id] || 0;
-        const totalLessons = module.chapters.reduce((sum, chapter) => sum + chapter.lessons.length, 0);
-        result[module.id] = totalLessons > 0 ? completed / totalLessons : 0;
-      }
-      setModuleProgress(result);
-    }).catch(() => {});
+    const loadFirestoreData = async () => {
+      try {
+        const cached = await AsyncStorage.getItem('@materi_cache');
+        if (cached) {
+          const { materials: m, videos: v, quizzes: q } = JSON.parse(cached);
+          if (m) setMaterials(m.filter((mat: Material) => mat.status === 'published'));
+          if (v) setVideos(v.filter((vid: Video) => vid.status === 'published'));
+          if (q) setQuizzes(q.filter((qz: Quiz) => qz.status === 'published'));
+        }
+        const [m, v, q] = await Promise.all([
+          LecturerDatabase.getAllMaterials(),
+          LecturerDatabase.getAllVideos(),
+          LecturerDatabase.getAllQuizzes(),
+        ]);
+        setMaterials(m.filter(mat => mat.status === 'published'));
+        setVideos(v.filter(vid => vid.status === 'published'));
+        setQuizzes(q.filter(qz => qz.status === 'published'));
+      } catch (_) {}
+    };
+    loadFirestoreData();
   }, []);
 
-  const realCompletedModules = MODULES.filter(m => (moduleProgress[m.id] || 0) >= 1).length;
-  const realTotalProgress = Math.round(
-    MODULES.reduce((sum, m) => sum + (moduleProgress[m.id] || 0), 0) / MODULES.length * 100
-  );
+  const totalMaterials = materials.length;
+  const totalVideos = videos.length;
+  const totalQuizzes = quizzes.length;
 
   const handleLogout = async () => {
     Alert.alert(
@@ -345,21 +351,21 @@ export default function ProfilScreen() {
             </View>
           </View>
 
-          {/* Stats */}
+          {/* Stats — real data from Firestore */}
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>{MODULES.length}</Text>
-              <Text style={styles.statLabel}>Total Materi</Text>
+              <Text style={styles.statValue}>{totalMaterials}</Text>
+              <Text style={styles.statLabel}>Materi</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>{realCompletedModules}</Text>
-              <Text style={styles.statLabel}>Selesai</Text>
+              <Text style={styles.statValue}>{totalVideos}</Text>
+              <Text style={styles.statLabel}>Video</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>{realTotalProgress}%</Text>
-              <Text style={styles.statLabel}>Progress</Text>
+              <Text style={styles.statValue}>{totalQuizzes}</Text>
+              <Text style={styles.statLabel}>Kuis</Text>
             </View>
           </View>
         </LinearGradient>
@@ -423,38 +429,47 @@ export default function ProfilScreen() {
           </View>
         </View>
 
-        {/* Progress Section */}
+        {/* Materials Section — real data from Firestore */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>PROGRESS BELAJAR</Text>
+          <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>MATERI PEMBELAJARAN</Text>
           <View style={styles.menuGroup}>
-            {MODULES.map((m) => {
-              const progress = moduleProgress[m.id] || 0;
-              return (
-                <View key={m.id} style={[styles.menuItem, { backgroundColor: theme.card }]}>
-                  <View style={[styles.menuIconWrap, { backgroundColor: m.color + '20' }]}>
-                    <Ionicons name="book-outline" size={20} color={m.color} />
-                  </View>
-                  <View style={styles.menuContent}>
-                    <Text style={[styles.menuLabel, { color: theme.text }]} numberOfLines={1}>
-                      {m.title}
-                    </Text>
-                    <View style={styles.progressRow}>
-                      <View style={[styles.progressBg, { backgroundColor: theme.border }]}>
-                        <View
-                          style={[
-                            styles.progressFill,
-                            { width: `${progress * 100}%`, backgroundColor: m.color },
-                          ]}
-                        />
-                      </View>
-                      <Text style={[styles.progressText, { color: theme.textMuted }]}>
-                        {Math.round(progress * 100)}%
+            {materials.length === 0 ? (
+              <View style={[styles.menuItem, { backgroundColor: theme.card }]}>
+                <Text style={[styles.menuValue, { color: theme.textMuted, padding: 8 }]}>
+                  Belum ada materi dari dosen.
+                </Text>
+              </View>
+            ) : (
+              materials.map((m) => {
+                const colorMap: Record<string, string> = {
+                  Kehamilan: '#4CAF50', Persalinan: '#2196F3', Nifas: '#9C27B0',
+                  Neonatus: '#FF9800', Laktasi: '#E91E63', KB: '#00BCD4',
+                };
+                const color = colorMap[m.category] || Colors.primary;
+                const matVideos = videos.filter(v => v.materialId === m.id);
+                const matQuiz = quizzes.find(q => q.materialId === m.id);
+                return (
+                  <View key={m.id} style={[styles.menuItem, { backgroundColor: theme.card }]}>
+                    <View style={[styles.menuIconWrap, { backgroundColor: color + '20' }]}>
+                      <Ionicons name="book-outline" size={20} color={color} />
+                    </View>
+                    <View style={styles.menuContent}>
+                      <Text style={[styles.menuLabel, { color: theme.text }]} numberOfLines={1}>
+                        {m.title}
+                      </Text>
+                      <Text style={[styles.menuValue, { color: theme.textMuted }]}>
+                        {m.category} • {matVideos.length} video • {matQuiz ? `${matQuiz.questions?.length || 0} soal` : 'Belum ada kuis'}
+                      </Text>
+                    </View>
+                    <View style={[styles.menuIconWrap, { backgroundColor: color + '20' }]}>
+                      <Text style={{ color, fontSize: 10, fontWeight: '700' }}>
+                        {m.status === 'published' ? 'Aktif' : 'Draft'}
                       </Text>
                     </View>
                   </View>
-                </View>
-              );
-            })}
+                );
+              })
+            )}
           </View>
         </View>
 
