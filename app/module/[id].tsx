@@ -22,13 +22,26 @@ import YoutubeIframe from 'react-native-youtube-iframe';
 const { width } = Dimensions.get('window');
 const VIDEO_HEIGHT = (width * 9) / 16;
 
-// Extract YouTube video ID from URL or plain ID
+// Extract YouTube video ID from URL or plain ID — supports all common formats
 function extractYoutubeId(urlOrId: string): string {
   if (!urlOrId) return '';
-  const match = urlOrId.match(
-    /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/))([A-Za-z0-9_-]{11})/
-  );
-  return match ? match[1] : urlOrId.trim();
+  const str = urlOrId.trim();
+  // Already a plain 11-char ID
+  if (/^[A-Za-z0-9_-]{11}$/.test(str)) return str;
+  // Various YouTube URL patterns
+  const patterns = [
+    /[?&]v=([A-Za-z0-9_-]{11})/,           // watch?v=ID
+    /youtu\.be\/([A-Za-z0-9_-]{11})/,       // youtu.be/ID
+    /youtube\.com\/embed\/([A-Za-z0-9_-]{11})/, // embed/ID
+    /youtube\.com\/v\/([A-Za-z0-9_-]{11})/, // v/ID
+    /youtube\.com\/shorts\/([A-Za-z0-9_-]{11})/, // shorts/ID
+  ];
+  for (const pattern of patterns) {
+    const match = str.match(pattern);
+    if (match) return match[1];
+  }
+  // Fallback — return as-is, might already be an ID
+  return str;
 }
 
 // Get a color based on category
@@ -194,8 +207,18 @@ export default function ModuleDetailScreen() {
                 setPlaying(false);
                 handleVideoComplete(activeVideo);
               }
+              if (state === 'playing') setPlaying(true);
+            }}
+            initialPlayerParams={{
+              controls: true,
+              modestbranding: true,
+              rel: false,
             }}
           />
+        </View>
+      ) : activeTab === 'video' && videos.length > 0 && !videoId ? (
+        <View style={[styles.videoContainer, { height: VIDEO_HEIGHT, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' }]}>
+          <Text style={{ color: '#fff', fontSize: 13 }}>Format URL video tidak valid</Text>
         </View>
       ) : null}
 

@@ -28,12 +28,23 @@ import YoutubeIframe from 'react-native-youtube-iframe';
 const { width } = Dimensions.get('window');
 const VIDEO_HEIGHT = (width * 9) / 16;
 
+// Extract YouTube video ID from URL or plain ID — supports all common formats
 function extractYoutubeId(urlOrId: string): string {
   if (!urlOrId) return '';
-  const match = urlOrId.match(
-    /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/))([A-Za-z0-9_-]{11})/
-  );
-  return match ? match[1] : urlOrId.trim();
+  const str = urlOrId.trim();
+  if (/^[A-Za-z0-9_-]{11}$/.test(str)) return str;
+  const patterns = [
+    /[?&]v=([A-Za-z0-9_-]{11})/,
+    /youtu\.be\/([A-Za-z0-9_-]{11})/,
+    /youtube\.com\/embed\/([A-Za-z0-9_-]{11})/,
+    /youtube\.com\/v\/([A-Za-z0-9_-]{11})/,
+    /youtube\.com\/shorts\/([A-Za-z0-9_-]{11})/,
+  ];
+  for (const pattern of patterns) {
+    const match = str.match(pattern);
+    if (match) return match[1];
+  }
+  return str;
 }
 
 export default function VideoPlayerScreen() {
