@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { Colors } from '../../src/constants/colors';
-import { collection, getDocs, setDoc, doc } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../src/config/firebase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -44,26 +44,12 @@ export default function MahasiswaScreen() {
     // Update dari Firestore di background
     try {
       const [studentsSnap, gradesSnap] = await Promise.all([
-        getDocs(collection(db, 'students')),
+        getDocs(query(collection(db, 'users'), where('role', '==', 'student'))),
         getDocs(collection(db, 'grades')),
       ]);
 
       const grades = gradesSnap.docs.map(d => d.data());
-      let studentsData: any[] = [];
-
-      if (studentsSnap.empty) {
-        const sample = [
-          { id: '1', name: 'Ananta Ziaurohman Az Zaki', nim: '2210631170007', email: 'ananta@student.unsika.ac.id' },
-          { id: '2', name: 'Sari Dewi Pratiwi', nim: '2210631170008', email: 'sari.dewi@student.unsika.ac.id' },
-          { id: '3', name: 'Maya Sari Indah', nim: '2210631170009', email: 'maya.sari@student.unsika.ac.id' },
-          { id: '4', name: 'Rina Safitri', nim: '2210631170010', email: 'rina.safitri@student.unsika.ac.id' },
-          { id: '5', name: 'Lila Permata Sari', nim: '2210631170011', email: 'lila.permata@student.unsika.ac.id' },
-        ];
-        for (const s of sample) await setDoc(doc(db, 'students', s.id), s);
-        studentsData = sample;
-      } else {
-        studentsData = studentsSnap.docs.map(d => ({ ...d.data(), id: d.id }));
-      }
+      const studentsData = studentsSnap.docs.map(d => ({ ...d.data(), id: d.id }));
 
       const combined: StudentWithGrades[] = studentsData.map(s => {
         const studentGrades = grades.filter(g => g.studentName === s.name || g.studentNim === s.nim);
