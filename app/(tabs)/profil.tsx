@@ -429,50 +429,6 @@ export default function ProfilScreen() {
           </View>
         </View>
 
-        {/* Materials Section — real data from Firestore */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>MATERI PEMBELAJARAN</Text>
-          <View style={styles.menuGroup}>
-            {materials.length === 0 ? (
-              <View style={[styles.menuItem, { backgroundColor: theme.card }]}>
-                <Text style={[styles.menuValue, { color: theme.textMuted, padding: 8 }]}>
-                  Belum ada materi dari dosen.
-                </Text>
-              </View>
-            ) : (
-              materials.map((m) => {
-                const colorMap: Record<string, string> = {
-                  Kehamilan: '#4CAF50', Persalinan: '#2196F3', Nifas: '#9C27B0',
-                  Neonatus: '#FF9800', Laktasi: '#E91E63', KB: '#00BCD4',
-                };
-                const color = colorMap[m.category] || Colors.primary;
-                const matVideos = videos.filter(v => v.materialId === m.id);
-                const matQuiz = quizzes.find(q => q.materialId === m.id);
-                return (
-                  <View key={m.id} style={[styles.menuItem, { backgroundColor: theme.card }]}>
-                    <View style={[styles.menuIconWrap, { backgroundColor: color + '20' }]}>
-                      <Ionicons name="book-outline" size={20} color={color} />
-                    </View>
-                    <View style={styles.menuContent}>
-                      <Text style={[styles.menuLabel, { color: theme.text }]} numberOfLines={1}>
-                        {m.title}
-                      </Text>
-                      <Text style={[styles.menuValue, { color: theme.textMuted }]}>
-                        {m.category} • {matVideos.length} video • {matQuiz ? `${matQuiz.questions?.length || 0} soal` : 'Belum ada kuis'}
-                      </Text>
-                    </View>
-                    <View style={[styles.menuIconWrap, { backgroundColor: color + '20' }]}>
-                      <Text style={{ color, fontSize: 10, fontWeight: '700' }}>
-                        {m.status === 'published' ? 'Aktif' : 'Draft'}
-                      </Text>
-                    </View>
-                  </View>
-                );
-              })
-            )}
-          </View>
-        </View>
-
         {/* Settings Section */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>PENGATURAN</Text>

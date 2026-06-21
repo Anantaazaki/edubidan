@@ -364,49 +364,6 @@ export default function HomeScreen() {
           </View>
         </LinearGradient>
 
-        {/* ── Enhanced Quick Actions ── */}
-        <View style={[styles.section, { backgroundColor: theme.background }]}>
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>Aksi Cepat</Text>
-          <View style={styles.quickActions}>
-            <TouchableOpacity
-              style={[styles.quickAction, { backgroundColor: Colors.primaryLight }]}
-              onPress={() => router.push('/(tabs)/materi')}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="book" size={28} color={Colors.primary} />
-              <Text style={[styles.quickActionText, { color: Colors.primary }]}>Semua Materi</Text>
-              <Text style={[styles.quickActionSubtext, { color: Colors.primary }]}>{totalMaterials} materi</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.quickAction, { backgroundColor: Colors.blueLight }]}
-              onPress={() => router.push('/(tabs)/riwayat')}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="analytics" size={28} color={Colors.blue} />
-              <Text style={[styles.quickActionText, { color: Colors.blue }]}>Statistik</Text>
-              <Text style={[styles.quickActionSubtext, { color: Colors.blue }]}>Progress</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.quickAction, { backgroundColor: Colors.amberLight }]}
-              onPress={() => router.push('/(tabs)/materi')}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="help-circle" size={28} color={Colors.amber} />
-              <Text style={[styles.quickActionText, { color: Colors.amber }]}>Kuis</Text>
-              <Text style={[styles.quickActionSubtext, { color: Colors.amber }]}>Evaluasi</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.quickAction, { backgroundColor: Colors.roseLight }]}
-              onPress={() => router.push('/(tabs)/profil')}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="person" size={28} color={Colors.rose} />
-              <Text style={[styles.quickActionText, { color: Colors.rose }]}>Profil</Text>
-              <Text style={[styles.quickActionSubtext, { color: Colors.rose }]}>Akun</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
         {/* ── All Materials from Firestore ── */}
         <View style={[styles.section, { backgroundColor: theme.background }]}>
           <View style={styles.sectionHeader}>
