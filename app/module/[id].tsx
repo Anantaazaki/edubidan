@@ -12,6 +12,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { Linking } from 'react-native';
 import { NotificationHelper } from '../../src/utils/notificationHelper';
 import { LecturerDatabase, Material, Video, Quiz } from '../../src/utils/lecturerDatabase';
 import { Colors } from '../../src/constants/colors';
@@ -163,6 +164,7 @@ export default function ModuleDetailScreen() {
     { key: 'deskripsi', label: 'Deskripsi', icon: 'document-text-outline' },
     { key: 'video', label: `Video (${videos.length})`, icon: 'play-circle-outline' },
     { key: 'quiz', label: 'Kuis', icon: 'help-circle-outline' },
+    ...(material.pdfUrl ? [{ key: 'pdf', label: 'Modul PDF', icon: 'document-outline' }] : []),
   ];
 
   return (
@@ -420,6 +422,49 @@ export default function ModuleDetailScreen() {
           </View>
         )}
 
+        {/* ── PDF TAB ── */}
+        {activeTab === 'pdf' && (
+          <View style={styles.section}>
+            {!material.pdfUrl ? (
+              <View style={styles.emptyTab}>
+                <Ionicons name="document-outline" size={64} color={theme.textMuted} />
+                <Text style={[styles.emptyTabTitle, { color: theme.text }]}>Belum Ada Modul PDF</Text>
+                <Text style={[styles.emptyTabText, { color: theme.textMuted }]}>
+                  Dosen belum mengupload modul PDF untuk materi ini.
+                </Text>
+              </View>
+            ) : (
+              <>
+                <Text style={[styles.sectionTitle, { color: theme.text }]}>Modul PDF</Text>
+                <View style={[styles.pdfCard, { backgroundColor: theme.card, borderColor: color }]}>
+                  <View style={[styles.pdfCardIcon, { backgroundColor: color + '20' }]}>
+                    <Ionicons name="document-text" size={40} color={color} />
+                  </View>
+                  <Text style={[styles.pdfCardTitle, { color: theme.text }]}>
+                    {material.pdfName || 'Modul Pembelajaran'}
+                  </Text>
+                  <Text style={[styles.pdfCardDesc, { color: theme.textMuted }]}>
+                    Modul PDF untuk materi {material.title}
+                  </Text>
+                  <TouchableOpacity
+                    style={[styles.pdfOpenBtn, { backgroundColor: color }]}
+                    onPress={() => {
+                      if (material.pdfUrl) {
+                        Linking.openURL(material.pdfUrl).catch(() => {
+                          alert('Tidak dapat membuka PDF. Pastikan kamu punya aplikasi PDF reader.');
+                        });
+                      }
+                    }}
+                  >
+                    <Ionicons name="open-outline" size={18} color={Colors.white} />
+                    <Text style={styles.pdfOpenBtnText}>Buka PDF</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </View>
+        )}
+
         <View style={{ height: 40 }} />
       </ScrollView>
     </View>
@@ -518,4 +563,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32, paddingVertical: 14, borderRadius: 12, marginTop: 4,
   },
   startQuizBtnText: { color: Colors.white, fontSize: 16, fontWeight: '700' },
+
+  // PDF Card
+  pdfCard: {
+    borderRadius: 16, padding: 24, borderWidth: 2,
+    alignItems: 'center', gap: 12,
+  },
+  pdfCardIcon: { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center' },
+  pdfCardTitle: { fontSize: 16, fontWeight: '700', textAlign: 'center' },
+  pdfCardDesc: { fontSize: 13, textAlign: 'center', lineHeight: 20 },
+  pdfOpenBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 32, paddingVertical: 14, borderRadius: 12, marginTop: 4,
+  },
+  pdfOpenBtnText: { color: Colors.white, fontSize: 16, fontWeight: '700' },
 });
