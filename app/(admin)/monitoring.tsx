@@ -210,33 +210,28 @@ export default function MonitoringScreen() {
       >
         {/* ── Activity Analytics ── */}
         <View style={[styles.section, { backgroundColor: theme.background }]}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Analisis Aktivitas</Text>
-            <TouchableOpacity>
-              <Text style={styles.seeAll}>Export</Text>
-            </TouchableOpacity>
-          </View>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Ringkasan Aktivitas</Text>
           
           <View style={styles.analyticsGrid}>
             <View style={[styles.analyticsCard, { backgroundColor: theme.card }]}>
               <View style={[styles.analyticsIcon, { backgroundColor: Colors.primaryLight }]}>
-                <Ionicons name="trending-up" size={24} color={Colors.primary} />
+                <Ionicons name="people" size={24} color={Colors.primary} />
               </View>
-              <Text style={[styles.analyticsValue, { color: theme.text }]}>+23%</Text>
-              <Text style={[styles.analyticsLabel, { color: theme.textMuted }]}>Aktivitas Harian</Text>
-              <Text style={[styles.analyticsSubtext, { color: Colors.green }]}>
-                Naik dari kemarin
+              <Text style={[styles.analyticsValue, { color: theme.text }]}>{stats.students}</Text>
+              <Text style={[styles.analyticsLabel, { color: theme.textMuted }]}>Aktivitas Mahasiswa</Text>
+              <Text style={[styles.analyticsSubtext, { color: Colors.primary }]}>
+                {getTimeFilterLabel(timeFilter)}
               </Text>
             </View>
             
             <View style={[styles.analyticsCard, { backgroundColor: theme.card }]}>
               <View style={[styles.analyticsIcon, { backgroundColor: Colors.blueLight }]}>
-                <Ionicons name="time" size={24} color={Colors.blue} />
+                <Ionicons name="school" size={24} color={Colors.blue} />
               </View>
-              <Text style={[styles.analyticsValue, { color: theme.text }]}>4.2h</Text>
-              <Text style={[styles.analyticsLabel, { color: theme.textMuted }]}>Rata-rata Session</Text>
+              <Text style={[styles.analyticsValue, { color: theme.text }]}>{stats.lecturers}</Text>
+              <Text style={[styles.analyticsLabel, { color: theme.textMuted }]}>Aktivitas Dosen</Text>
               <Text style={[styles.analyticsSubtext, { color: Colors.blue }]}>
-                Per pengguna
+                {getTimeFilterLabel(timeFilter)}
               </Text>
             </View>
           </View>

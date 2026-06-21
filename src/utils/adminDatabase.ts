@@ -262,14 +262,35 @@ export class AdminDatabase {
   // ── Students & Lecturers (from users collection) ──────────────────────────
   static async getAllStudents(): Promise<Student[]> {
     try {
-      const snap = await getDocs(query(collection(db, 'users'), where('role', '==', 'student')));
-      return snap.docs.map(d => ({
-        id: d.id, name: d.data().name, email: d.data().email,
-        nim: d.data().nim || '-', phone: d.data().phone || '-',
-        isActive: true, enrolledModules: [], completedModules: [],
-        totalQuizzes: 0, averageScore: 0,
-        lastActive: Date.now(), createdAt: d.data().createdAt || Date.now(),
-      } as Student));
+      const [usersSnap, gradesSnap] = await Promise.all([
+        getDocs(query(collection(db, 'users'), where('role', '==', 'student'))),
+        getDocs(collection(db, 'grades')),
+      ]);
+
+      return usersSnap.docs.map(d => {
+        const uid = d.id;
+        const userGrades = gradesSnap.docs
+          .map(g => g.data())
+          .filter(g => g.studentId === uid);
+        const totalQuizzes = userGrades.length;
+        const avgScore = totalQuizzes > 0
+          ? userGrades.reduce((sum, g) => sum + (g.score || 0), 0) / totalQuizzes
+          : 0;
+        return {
+          id: uid,
+          name: d.data().name,
+          email: d.data().email,
+          nim: d.data().nim || '-',
+          phone: d.data().phone || '-',
+          isActive: true,
+          enrolledModules: [],
+          completedModules: [],
+          totalQuizzes,
+          averageScore: Math.round(avgScore * 10) / 10,
+          lastActive: Date.now(),
+          createdAt: d.data().createdAt || Date.now(),
+        } as Student;
+      });
     } catch (error) {
       return [];
     }
@@ -277,15 +298,33 @@ export class AdminDatabase {
 
   static async getAllLecturers(): Promise<Lecturer[]> {
     try {
-      const snap = await getDocs(query(collection(db, 'users'), where('role', '==', 'lecturer')));
-      return snap.docs.map(d => ({
-        id: d.id, name: d.data().name, email: d.data().email,
-        nip: d.data().nim || '-', phone: d.data().phone || '-',
-        specialization: d.data().prodi || 'Kebidanan',
-        isActive: true, totalMaterials: 0, totalVideos: 0,
-        totalQuizzes: 0, totalStudents: 0,
-        createdAt: d.data().createdAt || Date.now(), lastActive: Date.now(),
-      } as Lecturer));
+      const [usersSnap, materialsSnap, videosSnap, studentsSnap] = await Promise.all([
+        getDocs(query(collection(db, 'users'), where('role', '==', 'lecturer'))),
+        getDocs(collection(db, 'materials')),
+        getDocs(collection(db, 'videos')),
+        getDocs(query(collection(db, 'users'), where('role', '==', 'student'))),
+      ]);
+
+      return usersSnap.docs.map(d => {
+        const uid = d.id;
+        const totalMaterials = materialsSnap.docs.filter(m => m.data().createdBy === uid).length;
+        const totalVideos = videosSnap.docs.filter(v => v.data().createdBy === uid).length;
+        return {
+          id: uid,
+          name: d.data().name,
+          email: d.data().email,
+          nip: d.data().nim || '-',
+          phone: d.data().phone || '-',
+          specialization: d.data().prodi || 'Kebidanan',
+          isActive: true,
+          totalMaterials,
+          totalVideos,
+          totalQuizzes: 0,
+          totalStudents: studentsSnap.size,
+          createdAt: d.data().createdAt || Date.now(),
+          lastActive: Date.now(),
+        } as Lecturer;
+      });
     } catch (error) {
       return [];
     }

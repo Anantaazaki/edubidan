@@ -16,19 +16,18 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { Colors } from '../../src/constants/colors';
 import { AdminDatabase, DashboardStats, Activity } from '../../src/utils/adminDatabase';
+import { auth } from '../../src/config/firebase';
 
 const { width } = Dimensions.get('window');
-
-const ADMIN_USER = {
-  name: 'Super Admin',
-  email: 'admin@edubidan.com',
-  role: 'Super Administrator',
-  avatar: 'A',
-};
 
 export default function AdminDashboardScreen() {
   const router = useRouter();
   const { isDark, theme, toggleTheme } = useTheme();
+
+  // Real admin user from Firebase Auth
+  const adminUser = auth.currentUser;
+  const adminName = adminUser?.displayName || adminUser?.email?.split('@')[0] || 'Admin';
+  const adminEmail = adminUser?.email || 'admin@edubidan.com';
   
   // State
   const [loading, setLoading] = useState(true);
@@ -172,10 +171,10 @@ export default function AdminDashboardScreen() {
             <View style={styles.headerLeft}>
               <Text style={styles.greeting}>{getGreeting()},</Text>
               <Text style={styles.userName} numberOfLines={1}>
-                {ADMIN_USER.name}
+                {adminName}
               </Text>
               <Text style={styles.userRole}>
-                {ADMIN_USER.role} • EduBidan
+                Administrator • EduBidan
               </Text>
               <Text style={styles.dateInfo}>{getCurrentDate()}</Text>
             </View>
@@ -187,7 +186,7 @@ export default function AdminDashboardScreen() {
               >
                 <View style={styles.profileAvatar}>
                   <Text style={styles.profileAvatarText}>
-                    {ADMIN_USER.avatar}
+                    {adminName.charAt(0).toUpperCase()}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -264,10 +263,6 @@ export default function AdminDashboardScreen() {
               </View>
               <Text style={[styles.statValue, { color: theme.text }]}>{stats.totalStudents.toLocaleString()}</Text>
               <Text style={[styles.statLabel, { color: theme.textMuted }]}>Total Mahasiswa</Text>
-              <View style={[styles.statChange, { backgroundColor: Colors.greenLight }]}>
-                <Ionicons name="trending-up" size={12} color={Colors.green} />
-                <Text style={[styles.statChangeText, { color: Colors.green }]}>+12%</Text>
-              </View>
             </View>
             
             <View style={[styles.statCard, { backgroundColor: theme.card }]}>
@@ -276,10 +271,6 @@ export default function AdminDashboardScreen() {
               </View>
               <Text style={[styles.statValue, { color: theme.text }]}>{stats.totalLecturers}</Text>
               <Text style={[styles.statLabel, { color: theme.textMuted }]}>Total Dosen</Text>
-              <View style={[styles.statChange, { backgroundColor: Colors.greenLight }]}>
-                <Ionicons name="trending-up" size={12} color={Colors.green} />
-                <Text style={[styles.statChangeText, { color: Colors.green }]}>+5%</Text>
-              </View>
             </View>
           </View>
           
@@ -290,10 +281,6 @@ export default function AdminDashboardScreen() {
               </View>
               <Text style={[styles.statValue, { color: theme.text }]}>{stats.totalMaterials}</Text>
               <Text style={[styles.statLabel, { color: theme.textMuted }]}>Total Materi</Text>
-              <View style={[styles.statChange, { backgroundColor: Colors.greenLight }]}>
-                <Ionicons name="trending-up" size={12} color={Colors.green} />
-                <Text style={[styles.statChangeText, { color: Colors.green }]}>+8%</Text>
-              </View>
             </View>
             
             <View style={[styles.statCard, { backgroundColor: theme.card }]}>
@@ -302,10 +289,6 @@ export default function AdminDashboardScreen() {
               </View>
               <Text style={[styles.statValue, { color: theme.text }]}>{stats.totalVideos}</Text>
               <Text style={[styles.statLabel, { color: theme.textMuted }]}>Total Video</Text>
-              <View style={[styles.statChange, { backgroundColor: Colors.greenLight }]}>
-                <Ionicons name="trending-up" size={12} color={Colors.green} />
-                <Text style={[styles.statChangeText, { color: Colors.green }]}>+15%</Text>
-              </View>
             </View>
           </View>
           
@@ -316,22 +299,14 @@ export default function AdminDashboardScreen() {
               </View>
               <Text style={[styles.statValue, { color: theme.text }]}>{stats.totalQuizzes}</Text>
               <Text style={[styles.statLabel, { color: theme.textMuted }]}>Total Quiz</Text>
-              <View style={[styles.statChange, { backgroundColor: Colors.greenLight }]}>
-                <Ionicons name="trending-up" size={12} color={Colors.green} />
-                <Text style={[styles.statChangeText, { color: Colors.green }]}>+10%</Text>
-              </View>
             </View>
             
             <View style={[styles.statCard, { backgroundColor: theme.card }]}>
               <View style={[styles.statIconWrap, { backgroundColor: Colors.tealLight }]}>
-                <Ionicons name="eye" size={20} color={Colors.teal} />
+                <Ionicons name="people-circle" size={20} color={Colors.teal} />
               </View>
-              <Text style={[styles.statValue, { color: theme.text }]}>{(stats.totalViews / 1000).toFixed(1)}K</Text>
-              <Text style={[styles.statLabel, { color: theme.textMuted }]}>Total Views</Text>
-              <View style={[styles.statChange, { backgroundColor: Colors.greenLight }]}>
-                <Ionicons name="trending-up" size={12} color={Colors.green} />
-                <Text style={[styles.statChangeText, { color: Colors.green }]}>+25%</Text>
-              </View>
+              <Text style={[styles.statValue, { color: theme.text }]}>{stats.totalAdmins}</Text>
+              <Text style={[styles.statLabel, { color: theme.textMuted }]}>Total Admin</Text>
             </View>
           </View>
         </View>
@@ -417,23 +392,25 @@ export default function AdminDashboardScreen() {
             <View style={styles.healthItems}>
               <View style={styles.healthItem}>
                 <View style={[styles.healthIndicator, { backgroundColor: Colors.green }]} />
-                <Text style={[styles.healthText, { color: theme.text }]}>Database</Text>
-                <Text style={[styles.healthStatus, { color: Colors.green }]}>Online</Text>
+                <Text style={[styles.healthText, { color: theme.text }]}>Database Firestore</Text>
+                <Text style={[styles.healthStatus, { color: Colors.green }]}>Terhubung</Text>
               </View>
               <View style={styles.healthItem}>
                 <View style={[styles.healthIndicator, { backgroundColor: Colors.green }]} />
-                <Text style={[styles.healthText, { color: theme.text }]}>Server</Text>
-                <Text style={[styles.healthStatus, { color: Colors.green }]}>Normal</Text>
-              </View>
-              <View style={styles.healthItem}>
-                <View style={[styles.healthIndicator, { backgroundColor: Colors.amber }]} />
-                <Text style={[styles.healthText, { color: theme.text }]}>Storage</Text>
-                <Text style={[styles.healthStatus, { color: Colors.amber }]}>75% Terpakai</Text>
+                <Text style={[styles.healthText, { color: theme.text }]}>Firebase Auth</Text>
+                <Text style={[styles.healthStatus, { color: Colors.green }]}>Aktif</Text>
               </View>
               <View style={styles.healthItem}>
                 <View style={[styles.healthIndicator, { backgroundColor: Colors.green }]} />
-                <Text style={[styles.healthText, { color: theme.text }]}>Backup</Text>
-                <Text style={[styles.healthStatus, { color: Colors.green }]}>Terbaru</Text>
+                <Text style={[styles.healthText, { color: theme.text }]}>Firebase Storage</Text>
+                <Text style={[styles.healthStatus, { color: Colors.green }]}>Aktif</Text>
+              </View>
+              <View style={styles.healthItem}>
+                <View style={[styles.healthIndicator, { backgroundColor: Colors.primary }]} />
+                <Text style={[styles.healthText, { color: theme.text }]}>Total Pengguna</Text>
+                <Text style={[styles.healthStatus, { color: Colors.primary }]}>
+                  {stats.totalStudents + stats.totalLecturers + stats.totalAdmins} akun
+                </Text>
               </View>
             </View>
           </View>
