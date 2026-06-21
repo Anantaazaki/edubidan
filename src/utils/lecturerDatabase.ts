@@ -124,9 +124,15 @@ export class LecturerDatabase {
     fileName: string
   ): Promise<{ success: boolean; url?: string; message: string }> {
     try {
-      // Fetch the file as blob
-      const response = await fetch(fileUri);
-      const blob = await response.blob();
+      // React Native XMLHttpRequest blob workaround
+      const blob: Blob = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.onload = () => resolve(xhr.response);
+        xhr.onerror = () => reject(new Error('Failed to create blob'));
+        xhr.responseType = 'blob';
+        xhr.open('GET', fileUri, true);
+        xhr.send(null);
+      });
 
       // Upload to Firebase Storage
       const storageRef = ref(storage, `materials/${materialId}/pdf/${fileName}`);
