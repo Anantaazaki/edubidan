@@ -288,6 +288,12 @@ export default function MateriScreen() {
                           </Text>
                         </View>
                       ) : null}
+                      {material.pdfUrl ? (
+                        <View style={styles.metaItem}>
+                          <Ionicons name="document-text-outline" size={14} color={Colors.rose} />
+                          <Text style={[styles.metaText, { color: Colors.rose }]}>PDF</Text>
+                        </View>
+                      ) : null}
                     </View>
 
                     {/* Action Row */}
