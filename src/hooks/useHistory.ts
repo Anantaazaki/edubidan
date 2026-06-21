@@ -36,10 +36,10 @@ export function useHistory() {
     try {
       setLoading(true);
       const userId = getCurrentUserId();
+      // Query sederhana tanpa composite index
       const q = query(
         collection(db, HISTORY_COL),
         where('userId', '==', userId),
-        orderBy('timestamp', 'desc'),
         limit(50)
       );
       const snap = await getDocs(q);
@@ -49,7 +49,8 @@ export function useHistory() {
           ? d.data().timestamp.toMillis()
           : d.data().timestamp || Date.now(),
       } as HistoryItem));
-      setHistory(items);
+      // Sort di client side
+      setHistory(items.sort((a, b) => b.timestamp - a.timestamp));
     } catch (error) {
       console.error('Error loading history:', error);
     } finally {

@@ -48,18 +48,20 @@ export class NotificationHelper {
   static async getAllNotifications(): Promise<Notification[]> {
     try {
       const userId = getCurrentUserId();
+      // Query sederhana tanpa composite index
       const q = query(
         collection(db, NOTIF_COL),
         where('userId', '==', userId),
-        orderBy('timestamp', 'desc'),
         limit(50)
       );
       const snap = await getDocs(q);
-      return snap.docs.map(d => ({
+      const notifs = snap.docs.map(d => ({
         ...d.data(), id: d.id,
         timestamp: d.data().timestamp instanceof Timestamp
           ? d.data().timestamp.toMillis() : d.data().timestamp || Date.now(),
       } as Notification));
+      // Sort di client side - tidak perlu index
+      return notifs.sort((a, b) => b.timestamp - a.timestamp);
     } catch (error) {
       console.error('Error getting notifications:', error);
       return [];
