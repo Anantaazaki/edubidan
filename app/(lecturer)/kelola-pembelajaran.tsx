@@ -186,8 +186,9 @@ export default function KelolaPembelajaranScreen() {
       } else {
         Alert.alert('Error', result.message);
       }
-    } catch (e) {
-      Alert.alert('Error', 'Gagal menyimpan data');
+    } catch (e: any) {
+      console.error('Save error:', e?.code, e?.message, e);
+      Alert.alert('Error', `Gagal menyimpan: ${e?.message || 'Unknown error'}`);
     } finally {
       setSaving(false);
     }
